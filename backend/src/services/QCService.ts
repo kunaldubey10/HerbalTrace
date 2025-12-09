@@ -379,13 +379,13 @@ export class QCService {
     const params: any[] = [status];
 
     if (status === 'in_progress' && !test.started_at) {
-      updates.push('started_at = datetime("now")');
+      updates.push("started_at = datetime('now')");
       updates.push('assigned_to = ?');
       params.push(updatedBy);
     }
 
     if (status === 'completed' || status === 'failed') {
-      updates.push('completed_at = datetime("now")');
+      updates.push("completed_at = datetime('now')");
     }
 
     if (notes) {

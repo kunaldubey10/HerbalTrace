@@ -240,6 +240,34 @@ export const initializeDatabase = (): void => {
       );
     `);
 
+    // Products table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        product_name TEXT NOT NULL,
+        product_type TEXT NOT NULL CHECK (product_type IN ('powder', 'extract', 'capsule', 'oil', 'tablet', 'syrup')),
+        batch_id TEXT NOT NULL,
+        manufacturer_id TEXT NOT NULL,
+        manufacturer_name TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        manufacture_date TEXT NOT NULL,
+        expiry_date TEXT NOT NULL,
+        qr_code TEXT UNIQUE NOT NULL,
+        qr_code_image TEXT,
+        ingredients TEXT,
+        certifications TEXT,
+        blockchain_tx_id TEXT,
+        status TEXT DEFAULT 'manufactured' CHECK (status IN ('manufactured', 'distributed', 'sold', 'recalled')),
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_products_qr ON products(qr_code);
+      CREATE INDEX IF NOT EXISTS idx_products_batch ON products(batch_id);
+      CREATE INDEX IF NOT EXISTS idx_products_manufacturer ON products(manufacturer_id);
+    `);
+
     // QC Test Templates - Predefined test configurations
     db.exec(`
       CREATE TABLE IF NOT EXISTS qc_test_templates (

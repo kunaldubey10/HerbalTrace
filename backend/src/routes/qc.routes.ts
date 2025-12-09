@@ -685,4 +685,178 @@ router.get('/batch/:batchId/tests', authenticate, async (req: AuthRequest, res: 
   }
 });
 
+/**
+ * POST /api/v1/qc/submit-test-results
+ * Direct submission of complete test results with blockchain sync
+ * 
+ * Access: Admin, Lab users
+ */
+router.post('/submit-test-results', authenticate, authorize('Admin', 'Lab'), async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      batchId,
+      testDate,
+      moistureContent,
+      pesticideResults,
+      heavyMetals,
+      dnaBarcode,
+      microbialLoad,
+      overallResult,
+      grade,
+      notes
+    } = req.body;
+
+    if (!batchId || !testDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: batchId, testDate',
+      });
+    }
+
+    // Get batch details
+    const batch = db.prepare('SELECT * FROM batches WHERE batch_number = ? OR id = ?').get(batchId, batchId) as any;
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found',
+      });
+    }
+
+    // Get user details
+    const user = req.user!;
+    const testId = `QCT-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    // Prepare test data
+    const testData = {
+      id: testId,
+      batchId: batch.id,
+      batchNumber: batch.batch_number,
+      labId: user.userId,
+      labName: user.username,
+      testDate,
+      moistureContent: moistureContent ? parseFloat(moistureContent) : null,
+      pesticideResults: pesticideResults || 'Not detected',
+      heavyMetals: heavyMetals || 'Within limits',
+      dnaBarcodeMatch: dnaBarcode ? (dnaBarcode.toLowerCase() === 'pass' ? 1 : 0) : null,
+      microbialLoad: microbialLoad ? parseFloat(microbialLoad) : null,
+      overallResult: overallResult || 'pass',
+      grade: grade || 'A',
+      notes: notes || '',
+      timestamp: new Date().toISOString()
+    };
+
+    // Insert into quality_tests_cache
+    const insertStmt = db.prepare(`
+      INSERT INTO quality_tests_cache (
+        id, batch_id, lab_id, lab_name, test_date,
+        moisture_content, pesticide_results, heavy_metals,
+        dna_barcode_match, microbial_load, overall_result,
+        grade, data_json, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertStmt.run(
+      testId,
+      batch.id,
+      user.userId,
+      user.username,
+      testDate,
+      testData.moistureContent,
+      testData.pesticideResults,
+      testData.heavyMetals,
+      testData.dnaBarcodeMatch,
+      testData.microbialLoad,
+      testData.overallResult,
+      testData.grade,
+      JSON.stringify(testData),
+      'pending'
+    );
+
+    logger.info(`QC test created: ${testId} for batch ${batch.batch_number} by ${user.username}`);
+
+    // Attempt blockchain sync
+    let blockchainTxId: string | undefined;
+    let syncStatus = 'pending';
+    
+    try {
+      const { getFabricClient } = await import('../fabric/fabricClient');
+      const fabricClient = getFabricClient();
+      
+      // Connect using lab user credentials
+      await fabricClient.connect(user.userId, user.orgName || 'Org1MSP');
+      
+      // Submit QC test to blockchain
+      const blockchainData = {
+        testId,
+        batchId: batch.batch_number,
+        labId: user.userId,
+        labName: user.username,
+        testDate,
+        results: {
+          moistureContent: testData.moistureContent,
+          pesticideResults: testData.pesticideResults,
+          heavyMetals: testData.heavyMetals,
+          dnaBarcodeMatch: testData.dnaBarcodeMatch,
+          microbialLoad: testData.microbialLoad
+        },
+        overallResult: testData.overallResult,
+        grade: testData.grade,
+        timestamp: testData.timestamp
+      };
+
+      const result = await fabricClient.submitTransaction('CreateQualityTest', JSON.stringify(blockchainData));
+      blockchainTxId = result?.transactionId || `tx-${Date.now()}`;
+      syncStatus = 'synced';
+
+      // Update sync status
+      db.prepare(`
+        UPDATE quality_tests_cache
+        SET sync_status = ?, blockchain_tx_id = ?, synced_at = datetime('now')
+        WHERE id = ?
+      `).run(syncStatus, blockchainTxId, testId);
+
+      await fabricClient.disconnect();
+      logger.info(`✅ QC test synced to blockchain: ${testId}, TX: ${blockchainTxId}`);
+    } catch (blockchainError: any) {
+      logger.error(`Blockchain sync failed for QC test ${testId}:`, blockchainError);
+      syncStatus = 'failed';
+      // Update status but don't fail the request
+      db.prepare(`
+        UPDATE quality_tests_cache
+        SET sync_status = ?, error_message = ?
+        WHERE id = ?
+      `).run('failed', blockchainError.message, testId);
+    }
+
+    // Update batch status to quality_tested
+    db.prepare(`
+      UPDATE batches
+      SET status = 'quality_tested', updated_at = datetime('now')
+      WHERE id = ?
+    `).run(batch.id);
+
+    res.status(201).json({
+      success: true,
+      message: syncStatus === 'synced' 
+        ? 'Test results submitted and synced to blockchain successfully!' 
+        : 'Test results saved! Blockchain sync will occur within 2 minutes.',
+      data: {
+        testId,
+        batchId: batch.batch_number,
+        syncStatus,
+        blockchainTxId,
+        syncInfo: syncStatus === 'pending' 
+          ? 'Auto-sync runs every 2 minutes. Your test is queued for blockchain sync.' 
+          : undefined
+      }
+    });
+  } catch (error: any) {
+    logger.error('Submit test results error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to submit test results',
+    });
+  }
+});
+
 export default router;

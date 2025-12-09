@@ -126,7 +126,7 @@ export class FabricClient {
    */
   private async getContract() {
     const network = await this.getNetwork();
-    return network.getContract(this.chaincodeName);
+    return network.getContract(this.chaincodeName, 'HerbalTraceContract');
   }
 
   /**
@@ -136,13 +136,15 @@ export class FabricClient {
   async submitTransaction(functionName: string, ...args: string[]): Promise<any> {
     try {
       const contract = await this.getContract();
+      const network = await this.getNetwork();
       
-      // Create transaction and set endorsement to use ANY strategy
-      // This allows the SDK to use whatever peers are available
+      // Create transaction with explicit peer targeting
+      // Only use peer0 for each organization to avoid issues where peer1 doesn't have chaincode
       const transaction = contract.createTransaction(functionName);
       
-      // Set endorsement to be more flexible - use endorsing peers from connection profile
-      // The SDK will automatically select appropriate peers based on the policy
+      // Set to use only ONE peer for endorsement to avoid peer1 chaincode issues
+      transaction.setEndorsingPeers([network.getChannel().getEndorsers()[0]]);
+      
       const result = await transaction.submit(...args);
       
       logger.info(`Transaction ${functionName} submitted successfully`);

@@ -7,6 +7,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'herbaltrace-secret-key-change-in-p
 export interface AuthRequest extends Request {
   user?: {
     userId: string;
+    username: string;
+    fullName: string;
     name: string;
     email: string;
     orgName: string;
@@ -34,7 +36,9 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     // Attach user to request
     (req as any).user = {
       userId: decoded.userId,
-      name: decoded.name,
+      username: decoded.username,
+      fullName: decoded.fullName,
+      name: decoded.fullName || decoded.name,
       email: decoded.email,
       orgName: decoded.orgName,
       role: decoded.role

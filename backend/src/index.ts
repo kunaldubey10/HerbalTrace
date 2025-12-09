@@ -30,6 +30,8 @@ import alertRoutes from './routes/alert.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import healthRoutes from './routes/health.routes';
 import blockchainRoutes from './routes/blockchain.routes';
+import manufacturerRoutes from './routes/manufacturer.routes';
+import qrRoutes from './routes/qr.routes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -67,6 +69,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Static files - Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Serve public folder for verification pages
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Welcome page
 app.get('/', (_req: Request, res: Response) => {
@@ -126,6 +131,13 @@ app.use(`/${API_PREFIX}/alerts`, alertRoutes);
 app.use(`/${API_PREFIX}/analytics`, analyticsRoutes);
 app.use(`/${API_PREFIX}/health`, healthRoutes);
 app.use(`/${API_PREFIX}/blockchain`, blockchainRoutes);
+app.use(`/${API_PREFIX}/manufacturer`, manufacturerRoutes);
+app.use(`/${API_PREFIX}/qr`, qrRoutes);
+
+// Verification page for QR codes (serves HTML, page fetches data from API)
+app.get('/verify/:qrCode', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../public/verify.html'));
+});
 
 // 404 handler
 app.use((req: Request, res: Response) => {

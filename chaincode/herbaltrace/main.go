@@ -98,6 +98,25 @@ type ProcessingStep struct {
 	NextStepID        string            `json:"nextStepId,omitempty"`
 }
 
+// QCCertificate represents a quality control certificate
+type QCCertificate struct {
+	ID              string                 `json:"id"`
+	Type            string                 `json:"type"` // "QCCertificate"
+	CertificateID   string                 `json:"certificateId"`
+	TestID          string                 `json:"testId"`
+	BatchID         string                 `json:"batchId"`
+	BatchNumber     string                 `json:"batchNumber"`
+	SpeciesName     string                 `json:"speciesName"`
+	TestType        string                 `json:"testType"`
+	LabID           string                 `json:"labId"`
+	LabName         string                 `json:"labName"`
+	OverallResult   string                 `json:"overallResult"` // "PASS", "FAIL", "CONDITIONAL"
+	IssuedDate      string                 `json:"issuedDate"`
+	TestedBy        string                 `json:"testedBy"`
+	Results         []map[string]interface{} `json:"results"`
+	Timestamp       string                 `json:"timestamp"`
+}
+
 // Product represents the final product with QR code
 type Product struct {
 	ID                string   `json:"id"`
@@ -470,6 +489,190 @@ func (c *HerbalTraceContract) GetProcessingStep(ctx contractapi.TransactionConte
 	return &step, nil
 }
 
+// RecordQCCertificate records a quality control certificate on the blockchain
+func (c *HerbalTraceContract) RecordQCCertificate(ctx contractapi.TransactionContextInterface, 
+	certificateId string, testId string, batchId string, batchNumber string,
+	speciesName string, testType string, labId string, labName string,
+	overallResult string, issuedDate string, testedBy string, resultsJSON string) error {
+	
+	// Parse results
+	var results []map[string]interface{}
+	if resultsJSON != "" {
+		err := json.Unmarshal([]byte(resultsJSON), &results)
+		if err != nil {
+			log.Printf("Warning: Failed to unmarshal results: %v", err)
+			results = []map[string]interface{}{}
+		}
+	}
+
+	// Create certificate object
+	certificate := QCCertificate{
+		ID:            certificateId,
+		Type:          "QCCertificate",
+		CertificateID: certificateId,
+		TestID:        testId,
+		BatchID:       batchId,
+		BatchNumber:   batchNumber,
+		SpeciesName:   speciesName,
+		TestType:      testType,
+		LabID:         labId,
+		LabName:       labName,
+		OverallResult: overallResult,
+		IssuedDate:    issuedDate,
+		TestedBy:      testedBy,
+		Results:       results,
+		Timestamp:     issuedDate,
+	}
+
+	// Save certificate
+	certBytes, err := json.Marshal(certificate)
+	if err != nil {
+		return fmt.Errorf("failed to marshal certificate: %v", err)
+	}
+
+	err = ctx.GetStub().PutState(certificateId, certBytes)
+	if err != nil {
+		return fmt.Errorf("failed to save certificate: %v", err)
+	}
+
+	// Update batch status if applicable
+	if batchId != "" {
+		err = c.UpdateBatchStatus(ctx, batchId, "quality_tested")
+		if err != nil {
+			log.Printf("Warning: Failed to update batch status: %v", err)
+		}
+	}
+
+	// Emit event
+	eventPayload := map[string]interface{}{
+		"eventType":     "QCCertificateRecorded",
+		"certificateId": certificateId,
+		"testId":        testId,
+		"batchId":       batchId,
+		"labId":         labId,
+		"overallResult": overallResult,
+		"timestamp":     issuedDate,
+	}
+	eventPayloadBytes, _ := json.Marshal(eventPayload)
+	ctx.GetStub().SetEvent("QCCertificateRecorded", eventPayloadBytes)
+
+	log.Printf("QC Certificate recorded: %s for batch %s (result: %s)", certificateId, batchId, overallResult)
+	return nil
+}
+
+// QueryQCCertificate retrieves a certificate by ID
+func (c *HerbalTraceContract) QueryQCCertificate(ctx contractapi.TransactionContextInterface, certificateId string) (*QCCertificate, error) {
+	certBytes, err := ctx.GetStub().GetState(certificateId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate: %v", err)
+	}
+	if certBytes == nil {
+		return nil, fmt.Errorf("certificate not found: %s", certificateId)
+	}
+
+	var certificate QCCertificate
+	err = json.Unmarshal(certBytes, &certificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal certificate: %v", err)
+	}
+
+	return &certificate, nil
+}
+
+// QueryCertificatesByBatch retrieves all certificates for a specific batch
+func (c *HerbalTraceContract) QueryCertificatesByBatch(ctx contractapi.TransactionContextInterface, batchId string) ([]*QCCertificate, error) {
+	queryString := fmt.Sprintf(`{"selector":{"type":"QCCertificate","batchId":"%s"}}`, batchId)
+	
+	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query certificates: %v", err)
+	}
+	defer resultsIterator.Close()
+
+	var certificates []*QCCertificate
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var certificate QCCertificate
+		err = json.Unmarshal(queryResponse.Value, &certificate)
+		if err != nil {
+			return nil, err
+		}
+		certificates = append(certificates, &certificate)
+	}
+
+	return certificates, nil
+}
+
+// GetCertificateHistory retrieves the modification history of a certificate
+func (c *HerbalTraceContract) GetCertificateHistory(ctx contractapi.TransactionContextInterface, certificateId string) ([]map[string]interface{}, error) {
+	resultsIterator, err := ctx.GetStub().GetHistoryForKey(certificateId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get history: %v", err)
+	}
+	defer resultsIterator.Close()
+
+	var history []map[string]interface{}
+	for resultsIterator.HasNext() {
+		historyData, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var certificate QCCertificate
+		if len(historyData.Value) > 0 {
+			json.Unmarshal(historyData.Value, &certificate)
+		}
+
+		historyEntry := map[string]interface{}{
+			"txId":      historyData.TxId,
+			"timestamp": historyData.Timestamp,
+			"isDelete":  historyData.IsDelete,
+			"value":     certificate,
+		}
+		history = append(history, historyEntry)
+	}
+
+	return history, nil
+}
+
+// GetAllCertificates retrieves all certificates with pagination
+func (c *HerbalTraceContract) GetAllCertificates(ctx contractapi.TransactionContextInterface, pageSize int, bookmark string) (map[string]interface{}, error) {
+	queryString := `{"selector":{"type":"QCCertificate"}}`
+	
+	resultsIterator, responseMetadata, err := ctx.GetStub().GetQueryResultWithPagination(queryString, int32(pageSize), bookmark)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query certificates: %v", err)
+	}
+	defer resultsIterator.Close()
+
+	var certificates []*QCCertificate
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var certificate QCCertificate
+		err = json.Unmarshal(queryResponse.Value, &certificate)
+		if err != nil {
+			return nil, err
+		}
+		certificates = append(certificates, &certificate)
+	}
+
+	result := map[string]interface{}{
+		"certificates":    certificates,
+		"fetchedCount":    responseMetadata.FetchedRecordsCount,
+		"bookmark":        responseMetadata.Bookmark,
+	}
+
+	return result, nil
+}
+
 // CreateProduct creates a final product with QR code and automatic batch status update
 func (c *HerbalTraceContract) CreateProduct(ctx contractapi.TransactionContextInterface, productJSON string) error {
 	var product Product
@@ -658,14 +861,39 @@ func (c *HerbalTraceContract) queryCollectionEvents(ctx contractapi.TransactionC
 
 // validateGeoFencing checks if collection location is in approved zone
 func (c *HerbalTraceContract) validateGeoFencing(lat, lon float64, species string) bool {
-	// Simplified validation - in production, check against approved zones database
-	// For demo, allow most locations except some edge cases
+	// Basic coordinate validation
 	if lat < -90 || lat > 90 || lon < -180 || lon > 180 {
 		return false
 	}
 	
-	// Add specific zone checks based on species and NMPB guidelines
-	// This is a placeholder for actual zone validation logic
+	// Define approved zones for specific species
+	// Neem zone: Greater Noida area (30.268804, 77.993259) with 50km radius
+	if species == "Neem" {
+		neemLat := 30.268804
+		neemLon := 77.993259
+		radius := 0.5 // ~50km in degrees (approximate)
+		
+		latDiff := lat - neemLat
+		lonDiff := lon - neemLon
+		distance := (latDiff * latDiff) + (lonDiff * lonDiff)
+		
+		if distance <= (radius * radius) {
+			return true
+		}
+		return false
+	}
+	
+	// Ashwagandha zone: Keep existing zone (allow all for now)
+	if species == "Ashwagandha" {
+		return true
+	}
+	
+	// Tulsi, Brahmi: Year-round herbs, allow all locations
+	if species == "Tulsi" || species == "Brahmi" {
+		return true
+	}
+	
+	// Default: allow all other species for demo
 	return true
 }
 
