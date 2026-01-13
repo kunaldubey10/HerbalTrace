@@ -9,20 +9,20 @@ OrdererOrgs:
 
 PeerOrgs:
   - Name: FarmersCoop
-    Domain: farmers.herbaltrace.com
+    Domain: farmerscoop.herbaltrace.com
     EnableNodeOUs: true
     Template:
       Count: 2
     Users:
-      Count: 2
+      Count: 3
 
   - Name: TestingLabs
-    Domain: labs.herbaltrace.com
+    Domain: testinglabs.herbaltrace.com
     EnableNodeOUs: true
     Template:
       Count: 2
     Users:
-      Count: 2
+      Count: 3
 
   - Name: Processors
     Domain: processors.herbaltrace.com
@@ -30,7 +30,7 @@ PeerOrgs:
     Template:
       Count: 2
     Users:
-      Count: 2
+      Count: 3
 
   - Name: Manufacturers
     Domain: manufacturers.herbaltrace.com
@@ -38,4 +38,4 @@ PeerOrgs:
     Template:
       Count: 2
     Users:
-      Count: 2
+      Count: 3

@@ -173,6 +173,10 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
     }
 
     // 3. Generate QR code image BEFORE saving to database
+    // QR code now links directly to the Vercel verification page
+    const vercelUrl = process.env.VERCEL_URL || 'https://herbaltrace165343.vercel.app';
+    const verificationUrl = `${vercelUrl}/verify/${qrCode}`;
+    
     const qrPayloadTemp = {
       qrCode,
       productId,
@@ -196,8 +200,8 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       signature,
     };
 
-    // Generate QR code image as data URL
-    const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(signedPayload), {
+    // Generate QR code image as data URL - QR now contains the Vercel URL for easy mobile scanning
+    const qrCodeDataURL = await QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: 'H',
       type: 'image/png',
       width: 400,
@@ -254,7 +258,7 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       collectionCount: batchCollections.length,
       qcTestCount: qcTests.length,
       processingStepCount: processingStepIds.length,
-      verificationUrl: `${process.env.PUBLIC_URL || 'http://localhost:3000'}/verify/${qrCode}`,
+      verificationUrl: `${process.env.VERCEL_URL || 'https://herbaltrace165343.vercel.app'}/verify/${qrCode}`,
     };
 
     logger.info(`Product created successfully: ${productId} with QR: ${qrCode}`);

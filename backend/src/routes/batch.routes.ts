@@ -90,7 +90,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
  * GET /api/v1/batches
  * List batches with filters
  * 
- * Access: Admin (all batches), Processor (assigned batches only)
+ * Access: Admin (all batches), Processor (assigned batches only), Lab (all batches for testing)
  * 
  * Query params:
  * - species?: string
@@ -105,6 +105,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const { species, status, assignedTo, createdBy, limit, offset } = req.query;
 
     // Authorization: Processors can only see their assigned batches
+    // Lab users can see all batches (they need to test them)
     let filters: any = {
       species: species as string,
       status: status as string,
@@ -239,7 +240,7 @@ router.get('/smart-groups', authenticate, async (req: AuthRequest, res: Response
  * GET /api/v1/batches/:id
  * Get single batch details with collections
  * 
- * Access: Admin (all batches), Processor (assigned batches only)
+ * Access: Admin (all batches), Processor (assigned batches only), Lab (all batches for testing)
  */
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -255,6 +256,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const batch = BatchService.getBatchById(db, batchId);
 
     // Authorization: Processors can only see their assigned batches
+    // Lab users can see all batches (they need to test them)
     if (req.user?.role === 'Processor' && batch.assigned_to !== req.user.username) {
       return res.status(403).json({
         success: false,
