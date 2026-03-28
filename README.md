@@ -215,6 +215,102 @@ HerbalTrace/
 
 ## 🚀 Quick Start
 
+## 💻 Run On A Different Laptop (Windows, Fresh Setup)
+
+This is the fastest validated path to run the full platform on a new Windows laptop.
+
+### 1. Install Prerequisites
+
+- Git
+- Node.js 20.x (LTS)
+- Docker Desktop (Linux containers mode)
+- PowerShell 7+ (recommended)
+
+### 2. Clone And Open
+
+```powershell
+git clone https://github.com/kunaldubey10/Graph.git
+cd Graph/HerbalTrace
+```
+
+### 3. Install Backend Dependencies
+
+```powershell
+cd backend
+npm install
+cd ..
+```
+
+### 4. Start Blockchain Network
+
+Use Git Bash (or WSL bash) from `HerbalTrace/network`:
+
+```bash
+cd network
+./deploy-network.sh up -ca
+./scripts/create-channel-v2.sh
+```
+
+Notes:
+- Docker Desktop must be fully running first.
+- If channel already exists, you can skip recreate and continue.
+
+### 5. Start Backend API
+
+In PowerShell from `HerbalTrace/backend`:
+
+```powershell
+npm run dev
+```
+
+Health check:
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:3000/health -Method GET
+```
+
+### 6. Seed Or Login Admin
+
+If admin does not exist:
+
+```powershell
+node .\create-admin.js
+```
+
+Default admin used in current flows:
+- username: `admin`
+- password: `admin123`
+
+### 7. Run Full End-To-End Validation Flow
+
+From `HerbalTrace/backend`:
+
+```powershell
+node .\tmp-full-registration-to-consumer-test.js
+```
+
+This script validates:
+- new Farmer registration request
+- new Lab registration request
+- admin approval + issued credentials
+- new-user login
+- farmer collection creation + blockchain sync
+- admin batch creation
+- lab test + certificate on blockchain
+- manufacturer product + QR generation
+- consumer QR verification
+
+### 8. Consumer Verification (Google Lens)
+
+Use the `verificationUrl` returned by product creation / test output.
+Google Lens opens the QR URL, and the backend verification endpoint returns product provenance details.
+
+### Current Runtime Notes
+
+- Backend persistence is SQLite (`backend/data/herbaltrace.db`) in this setup.
+- Some old docs mention MongoDB; treat those as legacy unless you intentionally switch storage.
+- If you hit `daily harvest limit exceeded` for a species, use a compliant species or reduce quantity according to configured validation rules.
+
 ### Prerequisites
 
 - **Node.js** 20.x or higher
