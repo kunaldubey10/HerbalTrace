@@ -215,6 +215,24 @@ HerbalTrace/
 
 ## 🚀 Quick Start
 
+### One-Command Startup (Recommended)
+
+From `HerbalTrace/` on Windows PowerShell:
+
+```powershell
+.\run-herbaltrace.ps1 -Mode full
+```
+
+Options:
+
+```powershell
+# Start app only (no Fabric network/channel operations)
+.\run-herbaltrace.ps1 -Mode app-only
+
+# Start full stack and run the end-to-end validation script
+.\run-herbaltrace.ps1 -Mode full -RunE2E
+```
+
 ## 💻 Run On A Different Laptop (Windows, Fresh Setup)
 
 This is the fastest validated path to run the full platform on a new Windows laptop.
@@ -249,6 +267,12 @@ Use Git Bash (or WSL bash) from `HerbalTrace/network`:
 cd network
 ./deploy-network.sh up -ca
 ./scripts/create-channel-v2.sh
+```
+
+Or use the automation script from project root:
+
+```powershell
+.\run-herbaltrace.ps1 -Mode full
 ```
 
 Notes:
