@@ -142,7 +142,11 @@ chaincode:
     runtime: hyperledger/fabric-javaenv:2.5
   node:
     runtime: hyperledger/fabric-baseimage:2.5
-  externalBuilders: []
+  externalBuilders:
+    - name: ccaas_builder
+      path: /opt/hyperledger/ccaas_builder
+      propagateEnvironment:
+        - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG
   installTimeout: 300s
   startuptimeout: 300s
   executetimeout: 30s
@@ -159,7 +163,7 @@ chaincode:
     format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
 
 vm:
-  endpoint: unix:///host/var/run/docker.sock
+  endpoint: unix:///var/run/docker.sock
   docker:
     tls:
       enabled: false

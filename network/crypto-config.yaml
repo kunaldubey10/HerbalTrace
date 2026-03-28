@@ -9,7 +9,7 @@ OrdererOrgs:
 
 PeerOrgs:
   - Name: FarmersCoop
-    Domain: farmerscoop.herbaltrace.com
+    Domain: farmers.herbaltrace.com
     EnableNodeOUs: true
     Template:
       Count: 2
@@ -17,7 +17,7 @@ PeerOrgs:
       Count: 3
 
   - Name: TestingLabs
-    Domain: testinglabs.herbaltrace.com
+    Domain: labs.herbaltrace.com
     EnableNodeOUs: true
     Template:
       Count: 2

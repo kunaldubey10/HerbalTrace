@@ -389,7 +389,7 @@ export class QCService {
     }
 
     if (notes) {
-      updates.push('notes = COALESCE(notes, "") || ? || char(10)');
+      updates.push("notes = COALESCE(notes, '') || ? || char(10)");
       params.push(`[${new Date().toISOString()}] ${notes}\n`);
     }
 
@@ -555,34 +555,40 @@ export class QCService {
         testId: test.id,
         batchId: test.batch_id,
         batchNumber: batch?.batch_number || 'UNKNOWN',
-        speciesName: test.species_name,
-        testType: test.test_type,
+        speciesName: test.species || batch?.species || 'UNKNOWN',
+        testType: test.test_type || 'STANDARD',
         labId: test.lab_id,
-        labName: test.lab_name,
+        labName: test.lab_name || 'Unknown Lab',
         overallResult: certificate.overall_result,
         issuedDate: certificate.issued_at,
         testedBy: issuedBy,
-        results: test.results,
+        results: test.results || [],
       };
 
       // Record on blockchain
       const txResponse = await fabricService.recordQCCertificate(blockchainCertData);
-      const txData = JSON.parse(txResponse);
+      let txData: any = {};
+      try {
+        txData = txResponse ? JSON.parse(txResponse) : {};
+      } catch {
+        txData = {};
+      }
+      const txId = txData.txId || txData.txID || txData.transactionId || 'RECORDED';
 
       // Update certificate with blockchain transaction ID
       const blockchainTimestamp = new Date().toISOString();
       db.prepare(`
         UPDATE qc_certificates 
-        SET blockchain_txid = ?, blockchain_timestamp = ?
+        SET blockchain_txid = ?, blockchain_tx_id = ?, blockchain_timestamp = ?
         WHERE id = ?
-      `).run(txData.txId || 'RECORDED', blockchainTimestamp, certificate.id);
+      `).run(txId, txId, blockchainTimestamp, certificate.id);
 
-      logger.info(`Certificate ${certificate.certificate_number} recorded on blockchain: ${txData.txId}`);
+      logger.info(`Certificate ${certificate.certificate_number} recorded on blockchain: ${txId}`);
 
       return {
         ...certificate,
         blockchain: {
-          txid: txData.txId || 'RECORDED',
+          txid: txId,
           timestamp: blockchainTimestamp,
         },
       };

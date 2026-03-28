@@ -6,6 +6,12 @@ set -e
 cd "$(dirname "$0")/.."
 export FABRIC_CFG_PATH=${PWD}/configtx
 export CHANNEL_NAME=herbaltrace-channel
+export PATH=${PWD}/bin:${PATH}
+
+if ! command -v configtxgen >/dev/null 2>&1; then
+	echo "Error: configtxgen not found. Expected in ${PWD}/bin"
+	exit 1
+fi
 
 mkdir -p channel-artifacts
 

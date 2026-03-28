@@ -25,9 +25,102 @@ export class FabricService {
       channelName: config.channelName || 'herbaltrace-channel',
       chaincodeName: config.chaincodeName || 'herbaltrace',
       walletPath: config.walletPath || path.resolve(__dirname, '../../../network/wallet'),
-      connectionProfilePath: config.connectionProfilePath || path.resolve(__dirname, '../../../network/organizations/peerOrganizations/farmerscoop.herbaltrace.com/connection-farmerscoop.json'),
-      mspId: config.mspId || 'FarmersCoopMSP',
-      identity: config.identity || 'admin-FarmersCoop',
+      connectionProfilePath: config.connectionProfilePath || path.resolve(__dirname, '../../../network/organizations/peerOrganizations/processors.herbaltrace.com/connection-processors.json'),
+      mspId: config.mspId || 'ProcessorsMSP',
+      identity: config.identity || 'admin-Processors',
+    };
+  }
+
+  private buildInlineProcessorsCCP(): any {
+    const peerHost = 'peer0.processors.herbaltrace.com';
+    const peerTlsPath = path.resolve(__dirname, '../../../network/organizations/peerOrganizations/processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt');
+    const ordererTlsPath = path.resolve(__dirname, '../../../network/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem');
+
+    if (!fs.existsSync(peerTlsPath)) {
+      throw new Error(`Peer TLS cert not found: ${peerTlsPath}`);
+    }
+    if (!fs.existsSync(ordererTlsPath)) {
+      throw new Error(`Orderer TLS cert not found: ${ordererTlsPath}`);
+    }
+
+    const peerTlsPem = fs.readFileSync(peerTlsPath, 'utf8');
+    const ordererTlsPem = fs.readFileSync(ordererTlsPath, 'utf8');
+
+    const peerDefinitions: { [key: string]: { url: string; tlsCACerts: { pem: string }; grpcOptions: any } } = {
+      [peerHost]: {
+        url: 'grpcs://localhost:11051',
+        tlsCACerts: { pem: peerTlsPem },
+        grpcOptions: {
+          'ssl-target-name-override': peerHost,
+          hostnameOverride: peerHost,
+        },
+      },
+    };
+
+    const extraPeers = [
+      { alias: 'farmers', host: 'peer0.farmers.herbaltrace.com', port: 7051 },
+      { alias: 'labs', host: 'peer0.labs.herbaltrace.com', port: 9051 },
+      { alias: 'processors', host: 'peer0.processors.herbaltrace.com', port: 11051 },
+      { alias: 'manufacturers', host: 'peer0.manufacturers.herbaltrace.com', port: 13051 },
+    ];
+
+    for (const p of extraPeers) {
+      if (peerDefinitions[p.host]) {
+        continue;
+      }
+      const extraTlsPath = path.resolve(__dirname, `../../../network/organizations/peerOrganizations/${p.alias}.herbaltrace.com/peers/${p.host}/tls/ca.crt`);
+      if (!fs.existsSync(extraTlsPath)) {
+        continue;
+      }
+      const extraTlsPem = fs.readFileSync(extraTlsPath, 'utf8');
+      peerDefinitions[p.host] = {
+        url: `grpcs://localhost:${p.port}`,
+        tlsCACerts: { pem: extraTlsPem },
+        grpcOptions: {
+          'ssl-target-name-override': p.host,
+          hostnameOverride: p.host,
+        },
+      };
+    }
+
+    return {
+      name: 'herbaltrace-processors',
+      version: '1.0.0',
+      client: {
+        organization: 'processors',
+        connection: {
+          timeout: {
+            peer: { endorser: '300' },
+            orderer: '300',
+          },
+        },
+      },
+      organizations: {
+        processors: {
+          mspid: 'ProcessorsMSP',
+          peers: [peerHost],
+        },
+      },
+      peers: peerDefinitions,
+      orderers: {
+        'orderer.herbaltrace.com': {
+          url: 'grpcs://localhost:7050',
+          tlsCACerts: { pem: ordererTlsPem },
+          grpcOptions: {
+            'ssl-target-name-override': 'orderer.herbaltrace.com',
+            hostnameOverride: 'orderer.herbaltrace.com',
+          },
+        },
+      },
+      channels: {
+        [this.config.channelName]: {
+          orderers: ['orderer.herbaltrace.com'],
+          peers: Object.keys(peerDefinitions).reduce((acc: any, host) => {
+            acc[host] = {};
+            return acc;
+          }, {}),
+        },
+      },
     };
   }
 
@@ -45,12 +138,14 @@ export class FabricService {
 
       // Load connection profile
       const ccpPath = this.config.connectionProfilePath;
-      if (!fs.existsSync(ccpPath)) {
-        throw new Error(`Connection profile not found at: ${ccpPath}`);
+      let ccp: any;
+      if (fs.existsSync(ccpPath)) {
+        const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
+        ccp = JSON.parse(ccpJSON);
+      } else {
+        logger.warn(`Connection profile not found at ${ccpPath}, using inline processors profile`);
+        ccp = this.buildInlineProcessorsCCP();
       }
-
-      const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
-      const ccp = JSON.parse(ccpJSON);
 
       // Create a new file system based wallet for managing identities
       const walletPath = this.config.walletPath;
@@ -133,12 +228,31 @@ export class FabricService {
   async submitTransaction(functionName: string, ...args: string[]): Promise<string> {
     try {
       const contract = await this.getContract();
-      logger.info(`Submitting transaction: ${functionName}`, { args });
+      const normalizedArgs = args.map((arg, index) => {
+        if (arg === undefined || arg === null) {
+          logger.warn(`Transaction ${functionName} arg at index ${index} was ${arg}; using empty string`);
+          return '';
+        }
+        return String(arg);
+      });
 
-      const result = await contract.submitTransaction(functionName, ...args);
+      logger.info(`Submitting transaction: ${functionName}`, { args: normalizedArgs });
+
+      const transaction = contract.createTransaction(functionName);
+      const channel = (this.network as any)?.getChannel?.();
+      const endorsers = channel?.getEndorsers?.();
+      if (Array.isArray(endorsers) && endorsers.length > 0) {
+        transaction.setEndorsingPeers(endorsers);
+      }
+
+      const result = await transaction.submit(...normalizedArgs);
       const response = result.toString();
+      const txId = transaction.getTransactionId();
 
       logger.info(`Transaction ${functionName} submitted successfully`);
+      if (!response) {
+        return JSON.stringify({ txId });
+      }
       return response;
     } catch (error: any) {
       logger.error(`Failed to submit transaction ${functionName}:`, error);
@@ -183,17 +297,17 @@ export class FabricService {
     results: any[];
   }): Promise<string> {
     const args = [
-      certificateData.certificateId,
-      certificateData.testId,
-      certificateData.batchId,
-      certificateData.batchNumber,
-      certificateData.speciesName,
-      certificateData.testType,
-      certificateData.labId,
-      certificateData.labName,
-      certificateData.overallResult,
-      certificateData.issuedDate,
-      certificateData.testedBy,
+      certificateData.certificateId || '',
+      certificateData.testId || '',
+      certificateData.batchId || '',
+      certificateData.batchNumber || '',
+      certificateData.speciesName || 'UNKNOWN',
+      certificateData.testType || 'STANDARD',
+      certificateData.labId || '',
+      certificateData.labName || '',
+      certificateData.overallResult || '',
+      certificateData.issuedDate || new Date().toISOString(),
+      certificateData.testedBy || '',
       JSON.stringify(certificateData.results),
     ];
 

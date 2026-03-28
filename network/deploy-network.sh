@@ -9,6 +9,14 @@ set -e
 export FABRIC_CFG_PATH=${PWD}/configtx
 export VERBOSE=false
 
+function compose_cmd() {
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  else
+    docker compose "$@"
+  fi
+}
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -59,7 +67,7 @@ CHANNEL_NAME="herbaltrace-channel"
 CHAINCODE_NAME="herbaltrace"
 CHAINCODE_VERSION="1.0"
 CHAINCODE_PATH="../chaincode/herbaltrace"
-CHAINCODE_LANG="go"
+CHAINCODE_LANG="golang"
 DATABASE="couchdb"
 USE_CA="true"
 
@@ -130,7 +138,7 @@ function networkDown() {
   infoln "Stopping HerbalTrace network..."
   
   cd docker
-  docker-compose -f docker-compose-herbaltrace.yaml down --volumes --remove-orphans
+  compose_cmd -f docker-compose-herbaltrace.yaml down --volumes --remove-orphans
   cd ..
   
   clearContainers
@@ -181,9 +189,13 @@ function networkUp() {
   cd docker
   if [ "$DATABASE" == "couchdb" ]; then
     infoln "Starting network with CouchDB..."
-    docker-compose -f docker-compose-herbaltrace.yaml -f docker-compose-couch.yaml up -d
+    if [ -f docker-compose-couch.yaml ]; then
+      compose_cmd -f docker-compose-herbaltrace.yaml -f docker-compose-couch.yaml up -d
+    else
+      compose_cmd -f docker-compose-herbaltrace.yaml up -d
+    fi
   else
-    docker-compose -f docker-compose-herbaltrace.yaml up -d
+    compose_cmd -f docker-compose-herbaltrace.yaml up -d
   fi
   cd ..
   
@@ -201,7 +213,7 @@ function networkUp() {
 
 function createChannel() {
   infoln "Creating channel ${CHANNEL_NAME}..."
-  ./scripts/createChannel.sh $CHANNEL_NAME
+  ./scripts/create-channel-v2.sh
   
   if [ $? -ne 0 ]; then
     errorln "Failed to create channel"

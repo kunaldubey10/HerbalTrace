@@ -213,6 +213,7 @@ Profiles:
 
   HerbalTraceChannel:
     <<: *ChannelDefaults
+    Consortium: HerbalTraceConsortium
     Orderer:
       <<: *OrdererDefaults
       Organizations:

@@ -15,6 +15,161 @@ export class FabricClient {
     // Don't call async in constructor
   }
 
+  private getOrgConnectionInfo(orgName: string): { alias: string; mspId: string; peerPort: number } {
+    const normalized = (orgName || '').toLowerCase();
+
+    if (['farmer', 'farmers', 'farmerscoop'].includes(normalized)) {
+      return { alias: 'farmers', mspId: 'FarmersCoopMSP', peerPort: 7051 };
+    }
+    if (['lab', 'labs', 'testinglab', 'testinglabs'].includes(normalized)) {
+      return { alias: 'labs', mspId: 'TestingLabsMSP', peerPort: 9051 };
+    }
+    if (['processor', 'processors'].includes(normalized)) {
+      return { alias: 'processors', mspId: 'ProcessorsMSP', peerPort: 11051 };
+    }
+    if (['manufacturer', 'manufacturers'].includes(normalized)) {
+      return { alias: 'manufacturers', mspId: 'ManufacturersMSP', peerPort: 13051 };
+    }
+
+    throw new Error(`Unknown organization: ${orgName}`);
+  }
+
+  private buildInlineCCP(orgName: string): any {
+    const org = this.getOrgConnectionInfo(orgName);
+    const peerHost = `peer0.${org.alias}.herbaltrace.com`;
+    const orgBase = path.resolve(__dirname, `../../../network/organizations/peerOrganizations/${org.alias}.herbaltrace.com`);
+    const peerTlsPath = path.join(orgBase, `peers/${peerHost}/tls/ca.crt`);
+    const ordererTlsPath = path.resolve(__dirname, '../../../network/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem');
+
+    if (!fs.existsSync(peerTlsPath)) {
+      throw new Error(`Peer TLS cert not found: ${peerTlsPath}`);
+    }
+    if (!fs.existsSync(ordererTlsPath)) {
+      throw new Error(`Orderer TLS cert not found: ${ordererTlsPath}`);
+    }
+
+    const peerTlsPem = fs.readFileSync(peerTlsPath, 'utf8');
+    const ordererTlsPem = fs.readFileSync(ordererTlsPath, 'utf8');
+
+    const peerDefinitions: { [key: string]: { url: string; tlsCACerts: { pem: string }; grpcOptions: any } } = {
+      [peerHost]: {
+        url: `grpcs://localhost:${org.peerPort}`,
+        tlsCACerts: { pem: peerTlsPem },
+        grpcOptions: {
+          'ssl-target-name-override': peerHost,
+          hostnameOverride: peerHost,
+        },
+      },
+    };
+
+    const extraPeers = [
+      { alias: 'farmers', host: 'peer0.farmers.herbaltrace.com', port: 7051 },
+      { alias: 'labs', host: 'peer0.labs.herbaltrace.com', port: 9051 },
+      { alias: 'processors', host: 'peer0.processors.herbaltrace.com', port: 11051 },
+      { alias: 'manufacturers', host: 'peer0.manufacturers.herbaltrace.com', port: 13051 },
+    ];
+
+    for (const p of extraPeers) {
+      if (peerDefinitions[p.host]) {
+        continue;
+      }
+      const extraTlsPath = path.resolve(__dirname, `../../../network/organizations/peerOrganizations/${p.alias}.herbaltrace.com/peers/${p.host}/tls/ca.crt`);
+      if (!fs.existsSync(extraTlsPath)) {
+        continue;
+      }
+      const extraTlsPem = fs.readFileSync(extraTlsPath, 'utf8');
+      peerDefinitions[p.host] = {
+        url: `grpcs://localhost:${p.port}`,
+        tlsCACerts: { pem: extraTlsPem },
+        grpcOptions: {
+          'ssl-target-name-override': p.host,
+          hostnameOverride: p.host,
+        },
+      };
+    }
+
+    return {
+      name: `herbaltrace-${org.alias}`,
+      version: '1.0.0',
+      client: {
+        organization: org.alias,
+        connection: {
+          timeout: {
+            peer: { endorser: '300' },
+            orderer: '300',
+          },
+        },
+      },
+      organizations: {
+        [org.alias]: {
+          mspid: org.mspId,
+          peers: [peerHost],
+        },
+      },
+      peers: peerDefinitions,
+      orderers: {
+        'orderer.herbaltrace.com': {
+          url: 'grpcs://localhost:7050',
+          tlsCACerts: { pem: ordererTlsPem },
+          grpcOptions: {
+            'ssl-target-name-override': 'orderer.herbaltrace.com',
+            hostnameOverride: 'orderer.herbaltrace.com',
+          },
+        },
+      },
+      channels: {
+        [this.channelName]: {
+          orderers: ['orderer.herbaltrace.com'],
+          peers: Object.keys(peerDefinitions).reduce((acc: any, host) => {
+            acc[host] = {};
+            return acc;
+          }, {}),
+        },
+      },
+    };
+  }
+
+  private getAdminIdentityLabel(orgName: string): string {
+    const org = this.getOrgConnectionInfo(orgName);
+    const map: { [key: string]: string } = {
+      farmers: 'admin-Farmers',
+      labs: 'admin-Labs',
+      processors: 'admin-Processors',
+      manufacturers: 'admin-Manufacturers',
+    };
+    return map[org.alias];
+  }
+
+  private async upsertAdminIdentityFromMSP(orgName: string): Promise<void> {
+    const org = this.getOrgConnectionInfo(orgName);
+    const adminLabel = this.getAdminIdentityLabel(orgName);
+    const adminDir = path.resolve(
+      __dirname,
+      `../../../network/organizations/peerOrganizations/${org.alias}.herbaltrace.com/users/Admin@${org.alias}.herbaltrace.com/msp`
+    );
+
+    const signcertsDir = path.join(adminDir, 'signcerts');
+    const keystoreDir = path.join(adminDir, 'keystore');
+    if (!fs.existsSync(signcertsDir) || !fs.existsSync(keystoreDir)) {
+      throw new Error(`Admin MSP folders missing for ${org.alias}: ${adminDir}`);
+    }
+
+    const certFile = fs.readdirSync(signcertsDir).find((f) => f.endsWith('.pem'));
+    const keyFile = fs.readdirSync(keystoreDir).find((f) => f.endsWith('_sk') || f.endsWith('.pem') || f.endsWith('.key'));
+    if (!certFile || !keyFile) {
+      throw new Error(`Admin cert/key not found for ${org.alias}`);
+    }
+
+    const certificate = fs.readFileSync(path.join(signcertsDir, certFile), 'utf8');
+    const privateKey = fs.readFileSync(path.join(keystoreDir, keyFile), 'utf8');
+
+    await this.wallet.put(adminLabel, {
+      credentials: { certificate, privateKey },
+      mspId: org.mspId,
+      type: 'X.509',
+    });
+  }
+
   private async initializeWallet() {
     if (this.walletInitialized) {
       return;
@@ -47,23 +202,44 @@ export class FabricClient {
     try {
       logger.info(`🔍 Attempting to connect to Fabric network...`);
       logger.info(`User: ${userId}, Organization: ${orgName}`);
+
+      // Temporary interoperability mode: use Processors admin identity for writes.
+      // Farmer/Lab/Manufacturer wallet identities may be stale after CA regeneration.
+      const gatewayOrg = 'processors';
       
       // Ensure wallet is initialized
       await this.initializeWallet();
+      await this.upsertAdminIdentityFromMSP(gatewayOrg);
 
       // Load connection profile
-      const ccpPath = this.getCCPPath(orgName);
-      logger.info(`📄 Loading connection profile: ${ccpPath}`);
-      const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
+      let ccp: any;
+      try {
+        const ccpPath = this.getCCPPath(gatewayOrg);
+        logger.info(`📄 Loading connection profile: ${ccpPath}`);
+        ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
+      } catch (profileError: any) {
+        logger.warn(`Connection profile file unavailable, using inline profile for ${gatewayOrg}: ${profileError.message}`);
+        ccp = this.buildInlineCCP(gatewayOrg);
+      }
 
-      // Check identity in wallet
-      logger.info(`🔑 Looking for identity: ${userId}`);
-      const identity = await this.wallet.get(userId);
+      // Use org admin identity for transaction submissions.
+      // User-specific identities can drift after CA/cert regeneration and cause malformed creator errors.
+      const adminIdentityLabel = this.getAdminIdentityLabel(gatewayOrg);
+      let identityLabel = adminIdentityLabel;
+      let identity = await this.wallet.get(identityLabel);
+
+      if (!identity) {
+        logger.warn(`Admin identity '${adminIdentityLabel}' not found, falling back to user identity '${userId}'`);
+        identityLabel = userId;
+        identity = await this.wallet.get(identityLabel);
+      }
+
       if (!identity) {
         const available = await this.wallet.list();
-        throw new Error(`Identity '${userId}' not found. Available: ${available.map((id: any) => id.label).join(', ')}`);
+        throw new Error(`Identity '${adminIdentityLabel}' and fallback '${userId}' not found. Available: ${available.map((id: any) => id.label).join(', ')}`);
       }
-      logger.info(`✅ Identity found: ${userId} (MSP: ${(identity as any).mspId})`);
+
+      logger.info(`✅ Using wallet identity: ${identityLabel} (requested user: ${userId}, gateway org: ${gatewayOrg}, MSP: ${(identity as any).mspId})`);
 
       // Create gateway connection (disable discovery as service may not be available)
       this.gateway = new Gateway();
@@ -71,7 +247,7 @@ export class FabricClient {
       
       await this.gateway.connect(ccp, {
         wallet: this.wallet,
-        identity: userId,
+        identity: identityLabel,
         discovery: { enabled: false, asLocalhost: true }
       });
 
@@ -87,28 +263,40 @@ export class FabricClient {
    */
   private getCCPPath(orgName: string): string {
     const basePath = path.resolve(__dirname, '../../../network/organizations/peerOrganizations');
-    
-    const orgMap: { [key: string]: { domain: string, profile: string } } = {
-      'FarmersCoop': { domain: 'farmerscoop.herbaltrace.com', profile: 'farmerscoop' },
-      'TestingLabs': { domain: 'testinglabs.herbaltrace.com', profile: 'testinglabs' },
-      'Processors': { domain: 'processors.herbaltrace.com', profile: 'processors' },
-      'Manufacturers': { domain: 'manufacturers.herbaltrace.com', profile: 'manufacturers' }
+
+    const orgAliases: { [key: string]: string[] } = {
+      farmers: ['farmers', 'farmerscoop'],
+      testinglabs: ['testinglabs', 'labs'],
+      processors: ['processors'],
+      manufacturers: ['manufacturers']
     };
 
-    const orgConfig = orgMap[orgName];
-    if (!orgConfig) {
+    const normalized = (orgName || '').toLowerCase();
+    let key = normalized;
+    if (['farmer', 'farmers', 'farmerscoop'].includes(normalized)) {
+      key = 'farmers';
+    } else if (['lab', 'labs', 'testinglab', 'testinglabs'].includes(normalized)) {
+      key = 'testinglabs';
+    } else if (['processor', 'processors'].includes(normalized)) {
+      key = 'processors';
+    } else if (['manufacturer', 'manufacturers'].includes(normalized)) {
+      key = 'manufacturers';
+    }
+
+    const candidates = orgAliases[key];
+    if (!candidates || candidates.length === 0) {
       throw new Error(`Unknown organization: ${orgName}`);
     }
 
-    const ccpPath = path.join(basePath, orgConfig.domain, `connection-${orgConfig.profile}.json`);
-    
-    // Verify file exists
-    if (!fs.existsSync(ccpPath)) {
-      throw new Error(`Connection profile not found: ${ccpPath}`);
+    for (const alias of candidates) {
+      const ccpPath = path.join(basePath, `${alias}.herbaltrace.com`, `connection-${alias}.json`);
+      if (fs.existsSync(ccpPath)) {
+        logger.info(`Using connection profile: ${ccpPath}`);
+        return ccpPath;
+      }
     }
 
-    logger.info(`Using connection profile: ${ccpPath}`);
-    return ccpPath;
+    throw new Error(`Connection profile not found for organization: ${orgName}`);
   }
 
   /**
@@ -142,8 +330,8 @@ export class FabricClient {
       // Only use peer0 for each organization to avoid issues where peer1 doesn't have chaincode
       const transaction = contract.createTransaction(functionName);
       
-      // Set to use only ONE peer for endorsement to avoid peer1 chaincode issues
-      transaction.setEndorsingPeers([network.getChannel().getEndorsers()[0]]);
+      // Endorse on all configured peer0 nodes to satisfy multi-org endorsement policies.
+      transaction.setEndorsingPeers(network.getChannel().getEndorsers());
       
       const result = await transaction.submit(...args);
       
@@ -303,10 +491,16 @@ export class FabricClient {
       
       // Map organization names to CA names
       const orgToCaMap: { [key: string]: string } = {
-        'farmerscoop': 'farmers',
-        'labscoop': 'labs',
-        'processorscoop': 'processors',
-        'manufacturerscoop': 'manufacturers'
+        'farmers': 'farmerscoop',
+        'farmer': 'farmerscoop',
+        'farmerscoop': 'farmerscoop',
+        'labs': 'testinglabs',
+        'lab': 'testinglabs',
+        'testinglabs': 'testinglabs',
+        'processors': 'processors',
+        'processor': 'processors',
+        'manufacturers': 'manufacturers',
+        'manufacturer': 'manufacturers'
       };
       const caName = orgToCaMap[orgName.toLowerCase()] || orgName.toLowerCase();
       

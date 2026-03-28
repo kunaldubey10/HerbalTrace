@@ -537,7 +537,7 @@ router.post('/sync/retry', authenticate, async (req: Request, res: Response, nex
       
       try {
         const fabricClient = getFabricClient();
-        await fabricClient.connect('admin-HerbalTrace', 'HerbalTrace');
+        await fabricClient.connect('admin-Processors', 'Processors');
         
         const result = await fabricClient.createCollectionEvent(collectionData);
         const txId = result?.transactionId || `tx-${Date.now()}`;

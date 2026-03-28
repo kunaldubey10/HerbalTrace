@@ -5,8 +5,14 @@ set -e
 CHANNEL_NAME="herbaltrace-channel"
 CHANNEL_TX="./channel-artifacts/${CHANNEL_NAME}.tx"
 
-export FABRIC_CFG_PATH=${PWD}/configtx
+export FABRIC_CFG_PATH=${PWD}/peercfg
 export CORE_PEER_TLS_ENABLED=true
+export PATH=${PWD}/bin:${PATH}
+
+if ! command -v peer >/dev/null 2>&1; then
+  echo "Error: peer binary not found. Expected in ${PWD}/bin"
+  exit 1
+fi
 
 echo "Creating channel: ${CHANNEL_NAME}"
 
@@ -18,6 +24,7 @@ export CORE_PEER_ADDRESS=localhost:7051
 
 peer channel create -o localhost:7050 -c ${CHANNEL_NAME} \
   -f ${CHANNEL_TX} --outputBlock ./channel-artifacts/${CHANNEL_NAME}.block \
+  --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile ${PWD}/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem
 
 echo "Joining peers to channel..."

@@ -17,30 +17,35 @@ export async function enrollUserWithAdminCert(
     // Map orgName to correct organization structure
     // IMPORTANT: Use the actual peer organization domains (farmers, labs, processors, manufacturers)
     // NOT the connection profile names (farmerscoop, testinglabs, etc.)
-    const orgMap: { [key: string]: { mspId: string; certPath: string; keyPath: string } } = {
-      'FarmersCoop': {
+    const orgMap: { [key: string]: { mspId: string; domain: string } } = {
+      'farmers': {
         mspId: 'FarmersCoopMSP',
-        certPath: 'farmers.herbaltrace.com',  // Changed from farmerscoop
-        keyPath: 'farmers.herbaltrace.com'
+        domain: 'farmerscoop.herbaltrace.com'
       },
-      'TestingLabs': {
+      'farmerscoop': {
+        mspId: 'FarmersCoopMSP',
+        domain: 'farmerscoop.herbaltrace.com'
+      },
+      'testinglabs': {
         mspId: 'TestingLabsMSP',
-        certPath: 'labs.herbaltrace.com',  // Changed from testinglabs
-        keyPath: 'labs.herbaltrace.com'
+        domain: 'testinglabs.herbaltrace.com'
       },
-      'Processors': {
+      'labs': {
+        mspId: 'TestingLabsMSP',
+        domain: 'testinglabs.herbaltrace.com'
+      },
+      'processors': {
         mspId: 'ProcessorsMSP',
-        certPath: 'processors.herbaltrace.com',
-        keyPath: 'processors.herbaltrace.com'
+        domain: 'processors.herbaltrace.com'
       },
-      'Manufacturers': {
+      'manufacturers': {
         mspId: 'ManufacturersMSP',
-        certPath: 'manufacturers.herbaltrace.com',
-        keyPath: 'manufacturers.herbaltrace.com'
+        domain: 'manufacturers.herbaltrace.com'
       }
     };
 
-    const orgConfig = orgMap[orgName];
+    const normalizedOrg = (orgName || '').toLowerCase();
+    const orgConfig = orgMap[normalizedOrg];
     if (!orgConfig) {
       throw new Error(`Unknown organization: ${orgName}`);
     }
@@ -59,10 +64,10 @@ export async function enrollUserWithAdminCert(
     // Use the organization's admin certificate as a template
     // This is valid because all users in an org share the same MSP
     const networkPath = path.join(__dirname, '..', '..', '..', 'network');
-    const orgPath = path.join(networkPath, 'organizations', 'peerOrganizations', orgConfig.certPath);
+    const orgPath = path.join(networkPath, 'organizations', 'peerOrganizations', orgConfig.domain);
     
     // Path to admin user cert and key
-    const adminUserDir = 'Admin@' + orgConfig.certPath;
+    const adminUserDir = 'Admin@' + orgConfig.domain;
     const adminCertDir = path.join(orgPath, 'users', adminUserDir, 'msp', 'signcerts');
     const adminKeyPath = path.join(orgPath, 'users', adminUserDir, 'msp', 'keystore');
     

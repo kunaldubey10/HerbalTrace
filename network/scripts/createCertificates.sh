@@ -7,8 +7,15 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NETWORK_DIR="$SCRIPT_DIR/.."
+BIN_DIR="$NETWORK_DIR/bin"
+CRYPTOGEN="$BIN_DIR/cryptogen"
 
 echo "Generating certificates using cryptogen tool"
+
+if [ ! -x "$CRYPTOGEN" ]; then
+  echo "Error: cryptogen binary not found at $CRYPTOGEN"
+  exit 1
+fi
 
 # Create cryptogen config
 cat > "$NETWORK_DIR/crypto-config.yaml" << EOF
@@ -23,7 +30,7 @@ OrdererOrgs:
 
 PeerOrgs:
   - Name: FarmersCoop
-    Domain: farmerscoop.herbaltrace.com
+    Domain: farmers.herbaltrace.com
     EnableNodeOUs: true
     Template:
       Count: 2
@@ -31,7 +38,7 @@ PeerOrgs:
       Count: 3
 
   - Name: TestingLabs
-    Domain: testinglabs.herbaltrace.com
+    Domain: labs.herbaltrace.com
     EnableNodeOUs: true
     Template:
       Count: 2
@@ -56,6 +63,6 @@ PeerOrgs:
 EOF
 
 # Generate crypto material
-cryptogen generate --config="$NETWORK_DIR/crypto-config.yaml" --output="$NETWORK_DIR/organizations"
+"$CRYPTOGEN" generate --config="$NETWORK_DIR/crypto-config.yaml" --output="$NETWORK_DIR/organizations"
 
 echo "Certificates generated successfully!"
