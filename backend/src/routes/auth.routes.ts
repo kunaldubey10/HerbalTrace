@@ -334,6 +334,54 @@ router.post('/registration-requests/:id/reject', authenticate, authorize('Admin'
 });
 
 /**
+ * @route   GET /api/v1/auth/users
+ * @desc    Get users list (admin only)
+ * @access  Private (Admin)
+ */
+router.get('/users', authenticate, authorize('Admin'), async (_req: Request, res: Response) => {
+  try {
+    const users: any[] = db.prepare(`
+      SELECT
+        user_id,
+        username,
+        email,
+        full_name,
+        role,
+        org_name,
+        status,
+        created_at,
+        last_login
+      FROM users
+      ORDER BY created_at DESC
+    `).all();
+
+    const data = users.map((u) => ({
+      userId: u.user_id,
+      username: u.username,
+      email: u.email,
+      fullName: u.full_name,
+      role: u.role,
+      orgName: u.org_name,
+      status: u.status,
+      createdAt: u.created_at,
+      lastLogin: u.last_login
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: data.length,
+      data
+    });
+  } catch (error: any) {
+    logger.error('Get users list error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get users list'
+    });
+  }
+});
+
+/**
  * @route   POST /api/v1/auth/login
  * @desc    Login user
  * @access  Public
