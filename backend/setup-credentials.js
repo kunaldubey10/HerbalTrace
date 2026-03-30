@@ -5,7 +5,7 @@ console.log('\n🔐 Setting Up User Credentials\n');
 
 // Define the correct credentials
 const userCredentials = {
-  'admin': 'admin123',          // Admin user
+  'admin': 'admin@123',         // Admin user
   'avinashverma': 'avinash123',  // Farmer user
   'labtest': 'lab123'            // Lab user - already correct
 };
@@ -39,7 +39,7 @@ allUsers.forEach(user => {
 
 console.log('\n✅ Credentials setup complete!\n');
 console.log('📝 Summary:');
-console.log('  - Admin:  username: admin         password: admin123');
+console.log('  - Admin:  username: admin         password: admin@123');
 console.log('  - Farmer: username: avinashverma  password: avinash123');
 console.log('  - Lab:    username: labtest       password: lab123');
 console.log('\n');

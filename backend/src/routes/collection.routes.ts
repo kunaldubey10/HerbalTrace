@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { db } from '../config/database';
 import validationService from '../services/ValidationService';
 import imageUploadService from '../services/ImageUploadService';
+import BatchService from '../services/BatchService';
 
 const router = Router();
 
@@ -255,11 +256,17 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
 
     // Attempt blockchain sync (async, non-blocking)
     let blockchainTxId: string | undefined;
+    let autoBatch: any = null;
     try {
       // Use farmerId (which is the userId) to connect to Fabric
       // The JWT contains userId, and Fabric wallet stores identities by userId
       const fabricClient = getFabricClient();
-      await fabricClient.connect(farmerId, user.orgName);
+      try {
+        await fabricClient.connect(farmerId, user.orgName);
+      } catch (farmerConnectError: any) {
+        logger.warn(`Farmer wallet identity unavailable (${farmerId}). Falling back to admin-Processors for sync.`);
+        await fabricClient.connect('admin-Processors', 'Processors');
+      }
       
       const result = await fabricClient.createCollectionEvent(collectionEvent);
       blockchainTxId = result?.transactionId || `tx-${Date.now()}`;
@@ -270,6 +277,55 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
         SET sync_status = ?, blockchain_tx_id = ?, synced_at = datetime('now')
         WHERE id = ?
       `).run('synced', blockchainTxId, collectionId);
+
+      // Auto-create batch once collection is synced so lab can fetch it immediately.
+      try {
+        const batch = BatchService.createBatch(
+          db,
+          {
+            species: normalizedSpecies,
+            collectionIds: [collectionId as unknown as number],
+            notes: 'Auto-created from farmer collection event'
+          },
+          user.username || farmerId,
+          user.fullName || farmerName
+        );
+
+        let batchBlockchainTxId: string | null = null;
+        try {
+          const batchPayload = {
+            id: batch.batch_number,
+            species: batch.species,
+            totalQuantity: batch.total_quantity,
+            unit: batch.unit,
+            collectionEventIds: [collectionId],
+            createdBy: farmerId,
+            timestamp: new Date().toISOString()
+          };
+
+          const batchResult = await fabricClient.submitTransaction('CreateBatch', JSON.stringify(batchPayload));
+          batchBlockchainTxId = batchResult?.transactionId || null;
+
+          if (batchBlockchainTxId) {
+            db.prepare(`
+              UPDATE batches
+              SET blockchain_tx_id = ?
+              WHERE id = ?
+            `).run(batchBlockchainTxId, batch.id);
+          }
+        } catch (batchChainError: any) {
+          logger.warn(`Auto batch blockchain sync failed for ${batch.batch_number}:`, batchChainError.message);
+        }
+
+        autoBatch = {
+          id: batch.id,
+          batchNumber: batch.batch_number,
+          status: batch.status,
+          blockchainTxId: batchBlockchainTxId,
+        };
+      } catch (batchError: any) {
+        logger.warn(`Auto batch creation skipped for ${collectionId}:`, batchError.message);
+      }
       
       await fabricClient.disconnect();
       logger.info(`Collection synced to blockchain: ${collectionId}, TX: ${blockchainTxId}`);
@@ -281,6 +337,42 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
         SET sync_status = ?, error_message = ?
         WHERE id = ?
       `).run('failed', blockchainError.message, collectionId);
+
+      // Create local batch fallback so lab can fetch and proceed while blockchain retry is handled separately.
+      try {
+        const fallbackBatchNumber = `BATCH-${normalizedSpecies.toUpperCase()}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const inserted = db.prepare(`
+          INSERT INTO batches (
+            batch_number, species, total_quantity, unit, collection_count,
+            status, created_by, created_by_name, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          fallbackBatchNumber,
+          normalizedSpecies,
+          parsedQuantity,
+          unit || 'kg',
+          1,
+          'created',
+          user.username || farmerId,
+          user.fullName || farmerName,
+          'Auto-created from farmer collection event (blockchain sync pending)'
+        );
+
+        const fallbackBatchId = inserted.lastInsertRowid as number;
+        db.prepare(`
+          INSERT INTO batch_collections (batch_id, collection_id) VALUES (?, ?)
+        `).run(fallbackBatchId, collectionId);
+
+        autoBatch = {
+          id: fallbackBatchId,
+          batchNumber: fallbackBatchNumber,
+          status: 'created',
+          blockchainTxId: null,
+          note: 'Collection blockchain sync pending; retry sync to persist on channel.'
+        };
+      } catch (fallbackBatchError: any) {
+        logger.warn(`Fallback auto batch creation failed for ${collectionId}:`, fallbackBatchError.message);
+      }
     }
 
     res.status(201).json({
@@ -288,7 +380,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
       message: 'Collection event created successfully',
       data: collectionEvent,
       transactionId: blockchainTxId,
-      syncStatus: blockchainTxId ? 'synced' : 'pending',
+      syncStatus: blockchainTxId ? 'synced' : 'failed',
+      autoBatch,
       warnings: validationResult.warnings
     });
 

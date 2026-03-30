@@ -6,7 +6,7 @@ const dbPath = path.join(__dirname, 'data', 'herbaltrace.db');
 console.log('Database path:', dbPath);
 const db = new Database(dbPath);
 
-const password = bcrypt.hashSync('Admin@123', 10);
+const password = bcrypt.hashSync('admin@123', 10);
 
 const stmt = db.prepare(`
   INSERT OR REPLACE INTO users (
@@ -29,7 +29,7 @@ try {
   );
   console.log('✅ Admin user created successfully');
   console.log('Username: admin');
-  console.log('Password: Admin@123');
+  console.log('Password: admin@123');
 } catch (error) {
   console.error('Error creating admin:', error.message);
 }

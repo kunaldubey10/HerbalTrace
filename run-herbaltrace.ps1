@@ -1,7 +1,8 @@
 param(
   [ValidateSet('full','app-only')]
   [string]$Mode = 'full',
-  [switch]$RunE2E
+  [switch]$RunE2E,
+  [switch]$FreshStart
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,6 +30,7 @@ $networkDir = Join-Path $root 'network'
 Write-Host "HerbalTrace Portable Startup" -ForegroundColor Green
 Write-Host "Mode: $Mode" -ForegroundColor Green
 Write-Host "Root: $root" -ForegroundColor Green
+Write-Host "FreshStart: $FreshStart" -ForegroundColor Green
 
 Write-Step 'Checking prerequisites'
 
@@ -57,6 +59,16 @@ if ($Mode -eq 'full') {
 Write-Step 'Installing backend dependencies'
 Push-Location $backendDir
 npm install
+
+if ($FreshStart) {
+  Write-Step 'Resetting application data for fresh start'
+  node .\reset-fresh-start.js
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Fresh start reset failed.'
+  }
+  Write-Ok 'Application data reset completed.'
+}
+
 Pop-Location
 Write-Ok 'Backend dependencies installed.'
 

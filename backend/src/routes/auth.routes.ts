@@ -21,6 +21,8 @@ router.post('/registration-request', async (req: Request, res: Response) => {
   try {
     const {
       fullName,
+      firstName,
+      lastName,
       phone,
       email,
       locationDistrict,
@@ -36,11 +38,15 @@ router.post('/registration-request', async (req: Request, res: Response) => {
       aadharNumber
     } = req.body;
 
+    const normalizedFullName = fullName || `${firstName || ''} ${lastName || ''}`.trim();
+    const normalizedRole = role || 'Consumer';
+    const normalizedPhone = phone || 'NOT_PROVIDED';
+
     // Validation
-    if (!fullName || !phone || !email || !role) {
+    if (!normalizedFullName || !email || !aadharNumber) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide fullName, phone, email, and role'
+        message: 'Please provide full name, email, and Aadhaar number'
       });
     }
 
@@ -66,10 +72,10 @@ router.post('/registration-request', async (req: Request, res: Response) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
-      fullName,
-      phone,
+      normalizedFullName,
+      normalizedPhone,
       email,
-      role || 'Farmer',
+      normalizedRole,
       organizationName || null,
       locationDistrict || null,
       locationState || null,
@@ -86,11 +92,12 @@ router.post('/registration-request', async (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      message: 'Registration request submitted successfully. Admin will review and approve.',
+      message: 'Registration submitted. ID and password will be sent via email after admin verification.',
       data: {
         requestId: id,
         email,
-        status: 'pending'
+        status: 'pending',
+        role: normalizedRole
       }
     });
   } catch (error: any) {
@@ -342,10 +349,10 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // Get user (by username or email)
+    // Get user (by user ID, username, or email)
     const user: any = db.prepare(
-      'SELECT * FROM users WHERE (username = ? OR email = ?) AND status = ?'
-    ).get(username, username, 'active');
+      'SELECT * FROM users WHERE (user_id = ? OR username = ? OR email = ?) AND status = ?'
+    ).get(username, username, username, 'active');
 
     if (!user) {
       return res.status(401).json({
