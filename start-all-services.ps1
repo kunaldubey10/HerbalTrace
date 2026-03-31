@@ -8,6 +8,11 @@ Write-Host ""
 
 $ErrorActionPreference = "Continue"
 
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$networkDockerDir = Join-Path $root "network\docker"
+$backendDir = Join-Path $root "backend"
+$webPortalDir = Join-Path $root "web-portal"
+
 # Step 1: Stop any existing processes
 Write-Host "[1/6] Cleaning up existing processes..." -ForegroundColor Yellow
 Write-Host "  Stopping any running Node.js processes..." -ForegroundColor Gray
@@ -20,7 +25,7 @@ Write-Host ""
 
 # Step 2: Start Blockchain Network
 Write-Host "[2/6] Starting Hyperledger Fabric Blockchain Network..." -ForegroundColor Yellow
-Set-Location -Path "D:\Trial\HerbalTrace\network\docker"
+Set-Location -Path $networkDockerDir
 
 Write-Host "  Checking Docker status..." -ForegroundColor Gray
 $dockerInfo = docker info 2>$null
@@ -50,13 +55,13 @@ Write-Host ""
 
 # Step 4: Start Backend API Server
 Write-Host "[4/6] Starting Backend API Server..." -ForegroundColor Yellow
-Set-Location -Path "D:\Trial\HerbalTrace\backend"
+Set-Location -Path $backendDir
 
 Write-Host "  Verifying npm dependencies..." -ForegroundColor Gray
 npm install --silent 2>$null
 
 Write-Host "  Starting API server on port 3000..." -ForegroundColor Gray
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'D:\Trial\HerbalTrace\backend'; Write-Host 'Backend API Server' -ForegroundColor Cyan; npm start"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendDir'; Write-Host 'Backend API Server' -ForegroundColor Cyan; npm start"
 
 Write-Host "  Waiting for API server to initialize (10 seconds)..." -ForegroundColor Gray
 Start-Sleep -Seconds 10
@@ -71,13 +76,13 @@ Write-Host ""
 
 # Step 5: Start Web Portal
 Write-Host "[5/6] Starting Web Portal..." -ForegroundColor Yellow
-Set-Location -Path "D:\Trial\HerbalTrace\web-portal"
+Set-Location -Path $webPortalDir
 
 Write-Host "  Verifying npm dependencies..." -ForegroundColor Gray
 npm install --silent 2>$null
 
 Write-Host "  Starting Vite dev server..." -ForegroundColor Gray
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'D:\Trial\HerbalTrace\web-portal'; Write-Host 'Web Portal - Vite Dev Server' -ForegroundColor Cyan; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$webPortalDir'; Write-Host 'Web Portal - Vite Dev Server' -ForegroundColor Cyan; npm run dev"
 
 Write-Host "  Waiting for Vite to start (15 seconds)..." -ForegroundColor Gray
 Start-Sleep -Seconds 15

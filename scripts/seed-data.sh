@@ -8,7 +8,7 @@ set -e
 BACKEND_URL="${BACKEND_URL:-http://localhost:3000}"
 API_TOKEN=""
 
-echo "🌿 HerbalTrace Sample Data Seeding Script"
+echo "ðŸŒ¿ HerbalTrace Sample Data Seeding Script"
 echo "=========================================="
 
 # Login as admin to get token
@@ -24,11 +24,11 @@ LOGIN_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/auth/login" \
 API_TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
 
 if [ -z "$API_TOKEN" ]; then
-  echo "❌ Failed to authenticate"
+  echo "âŒ Failed to authenticate"
   exit 1
 fi
 
-echo "✅ Authentication successful"
+echo "âœ… Authentication successful"
 
 # Sample collection events
 declare -a COLLECTIONS=(
@@ -113,9 +113,9 @@ for i in "${!COLLECTIONS[@]}"; do
     -d "$COLLECTION")
   
   if echo "$RESPONSE" | grep -q "collectionId"; then
-    echo "✅ Collection created successfully"
+    echo "âœ… Collection created successfully"
   else
-    echo "❌ Failed to create collection"
+    echo "âŒ Failed to create collection"
     echo "$RESPONSE"
   fi
   
@@ -124,8 +124,8 @@ done
 
 echo ""
 echo "=========================================="
-echo "✅ Sample data seeding complete!"
-echo "📊 Created ${#COLLECTIONS[@]} collection events"
+echo "âœ… Sample data seeding complete!"
+echo "ðŸ“Š Created ${#COLLECTIONS[@]} collection events"
 echo ""
 echo "View collections:"
 echo "  curl $BACKEND_URL/api/collection/farmer/FARMER-001"

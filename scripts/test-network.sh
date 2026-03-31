@@ -6,7 +6,7 @@
 set -e
 
 echo "=================================="
-echo "🧪 HerbalTrace Network Test Suite"
+echo "ðŸ§ª HerbalTrace Network Test Suite"
 echo "=================================="
 echo ""
 
@@ -28,11 +28,11 @@ run_test() {
     echo -e "${YELLOW}Testing:${NC} $test_name"
     
     if eval "$test_command" > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ PASSED${NC}: $test_name"
+        echo -e "${GREEN}âœ… PASSED${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
     else
-        echo -e "${RED}❌ FAILED${NC}: $test_name"
+        echo -e "${RED}âŒ FAILED${NC}: $test_name"
         ((TESTS_FAILED++))
         return 1
     fi
@@ -51,19 +51,19 @@ run_test_with_output() {
     if output=$(eval "$test_command" 2>&1); then
         echo "$output"
         echo "---"
-        echo -e "${GREEN}✅ PASSED${NC}: $test_name"
+        echo -e "${GREEN}âœ… PASSED${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
     else
         echo "$output"
         echo "---"
-        echo -e "${RED}❌ FAILED${NC}: $test_name"
+        echo -e "${RED}âŒ FAILED${NC}: $test_name"
         ((TESTS_FAILED++))
         return 1
     fi
 }
 
-echo "📊 Test 1: Network Health Check"
+echo "ðŸ“Š Test 1: Network Health Check"
 echo "================================"
 
 # Check if containers are running
@@ -78,14 +78,14 @@ run_test "Lab peer is running" "docker exec peer0.labs.ayurtrace.com peer versio
 run_test "Processor peer is running" "docker exec peer0.processors.ayurtrace.com peer version"
 
 echo ""
-echo "📝 Test 2: Channel Configuration"
+echo "ðŸ“ Test 2: Channel Configuration"
 echo "================================"
 
 # List channels
 run_test_with_output "List channels on farmer peer" "docker exec peer0.farmers.ayurtrace.com peer channel list"
 
 echo ""
-echo "📦 Test 3: Chaincode Deployment"
+echo "ðŸ“¦ Test 3: Chaincode Deployment"
 echo "================================"
 
 # Check chaincode installation
@@ -95,7 +95,7 @@ run_test_with_output "List installed chaincode" "docker exec peer0.farmers.ayurt
 run_test_with_output "List committed chaincode" "docker exec peer0.farmers.ayurtrace.com peer lifecycle chaincode querycommitted -C ayurtrace"
 
 echo ""
-echo "🔗 Test 4: Blockchain Transactions"
+echo "ðŸ”— Test 4: Blockchain Transactions"
 echo "================================"
 
 # Test 1: Create a collection event
@@ -162,7 +162,7 @@ if run_test_with_output "Create quality test transaction" "$QUALITY_CMD"; then
 fi
 
 echo ""
-echo "📈 Test 5: Ledger State"
+echo "ðŸ“ˆ Test 5: Ledger State"
 echo "================================"
 
 # Query all collections
@@ -176,7 +176,7 @@ echo "Checking blockchain height..."
 run_test_with_output "Query block height" "docker exec peer0.farmers.ayurtrace.com peer channel getinfo -c ayurtrace"
 
 echo ""
-echo "🔍 Test 6: Provenance Generation"
+echo "ðŸ” Test 6: Provenance Generation"
 echo "================================"
 
 # Generate provenance
@@ -207,25 +207,25 @@ fi
 
 echo ""
 echo "=================================="
-echo "📊 Test Summary"
+echo "ðŸ“Š Test Summary"
 echo "=================================="
 echo -e "${GREEN}Tests Passed: $TESTS_PASSED${NC}"
 echo -e "${RED}Tests Failed: $TESTS_FAILED${NC}"
 echo ""
 
 if [ $TESTS_FAILED -eq 0 ]; then
-    echo -e "${GREEN}🎉 All tests passed! Network is fully operational.${NC}"
+    echo -e "${GREEN}ðŸŽ‰ All tests passed! Network is fully operational.${NC}"
     echo ""
     echo "Your HerbalTrace blockchain network is:"
-    echo "  ✅ Running correctly"
-    echo "  ✅ Processing transactions"
-    echo "  ✅ Storing data on ledger"
-    echo "  ✅ Supporting queries"
-    echo "  ✅ Generating provenance"
+    echo "  âœ… Running correctly"
+    echo "  âœ… Processing transactions"
+    echo "  âœ… Storing data on ledger"
+    echo "  âœ… Supporting queries"
+    echo "  âœ… Generating provenance"
     echo ""
     exit 0
 else
-    echo -e "${RED}⚠️  Some tests failed. Please check the logs above.${NC}"
+    echo -e "${RED}âš ï¸  Some tests failed. Please check the logs above.${NC}"
     echo ""
     exit 1
 fi

@@ -32,9 +32,9 @@ docker exec cli peer chaincode invoke \
   -c "{\"function\":\"CreateCollectionEvent\",\"Args\":[\"$COLLECTION_JSON\"]}"
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Collection event created successfully${NC}"
+    echo -e "${GREEN}âœ“ Collection event created successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to create collection event${NC}"
+    echo -e "${RED}âœ— Failed to create collection event${NC}"
     exit 1
 fi
 
@@ -49,9 +49,9 @@ docker exec cli peer chaincode query \
   -c '{"function":"GetCollectionEvent","Args":["COL001"]}'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Collection event retrieved successfully${NC}"
+    echo -e "${GREEN}âœ“ Collection event retrieved successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to retrieve collection event${NC}"
+    echo -e "${RED}âœ— Failed to retrieve collection event${NC}"
 fi
 
 sleep 2
@@ -75,9 +75,9 @@ docker exec cli peer chaincode invoke \
   -c "{\"function\":\"CreateQualityTest\",\"Args\":[\"$QUALITY_JSON\"]}"
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Quality test recorded successfully${NC}"
+    echo -e "${GREEN}âœ“ Quality test recorded successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to record quality test${NC}"
+    echo -e "${RED}âœ— Failed to record quality test${NC}"
     exit 1
 fi
 
@@ -92,9 +92,9 @@ docker exec cli peer chaincode query \
   -c '{"function":"GetQualityTest","Args":["QT001"]}'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Quality test retrieved successfully${NC}"
+    echo -e "${GREEN}âœ“ Quality test retrieved successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to retrieve quality test${NC}"
+    echo -e "${RED}âœ— Failed to retrieve quality test${NC}"
 fi
 
 sleep 2
@@ -118,9 +118,9 @@ docker exec cli peer chaincode invoke \
   -c "{\"function\":\"CreateProcessingStep\",\"Args\":[\"$PROCESSING_JSON\"]}"
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Processing step recorded successfully${NC}"
+    echo -e "${GREEN}âœ“ Processing step recorded successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to record processing step${NC}"
+    echo -e "${RED}âœ— Failed to record processing step${NC}"
     exit 1
 fi
 
@@ -135,9 +135,9 @@ docker exec cli peer chaincode query \
   -c '{"function":"GetProcessingStep","Args":["PS001"]}'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Processing step retrieved successfully${NC}"
+    echo -e "${GREEN}âœ“ Processing step retrieved successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to retrieve processing step${NC}"
+    echo -e "${RED}âœ— Failed to retrieve processing step${NC}"
 fi
 
 sleep 2
@@ -161,9 +161,9 @@ docker exec cli peer chaincode invoke \
   -c "{\"function\":\"CreateProduct\",\"Args\":[\"$PRODUCT_JSON\"]}"
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Product created successfully${NC}"
+    echo -e "${GREEN}âœ“ Product created successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to create product${NC}"
+    echo -e "${RED}âœ— Failed to create product${NC}"
     exit 1
 fi
 
@@ -178,9 +178,9 @@ docker exec cli peer chaincode query \
   -c '{"function":"GetProduct","Args":["PROD001"]}'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Product retrieved successfully${NC}"
+    echo -e "${GREEN}âœ“ Product retrieved successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to retrieve product${NC}"
+    echo -e "${RED}âœ— Failed to retrieve product${NC}"
 fi
 
 sleep 2
@@ -194,9 +194,9 @@ docker exec cli peer chaincode query \
   -c '{"function":"GetProductByQRCode","Args":["QR-PROD001-2025"]}'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Product found by QR code${NC}"
+    echo -e "${GREEN}âœ“ Product found by QR code${NC}"
 else
-    echo -e "${RED}✗ Failed to find product by QR code${NC}"
+    echo -e "${RED}âœ— Failed to find product by QR code${NC}"
 fi
 
 sleep 2
@@ -216,9 +216,9 @@ docker exec cli peer chaincode invoke \
   -c '{"function":"GenerateProvenance","Args":["PROD001"]}'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Provenance generated successfully${NC}"
+    echo -e "${GREEN}âœ“ Provenance generated successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to generate provenance${NC}"
+    echo -e "${RED}âœ— Failed to generate provenance${NC}"
 fi
 
 sleep 2
@@ -231,16 +231,16 @@ docker ps --filter 'name=dev-peer' --format 'table {{.Names}}\t{{.Status}}'
 
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✓ Complete Supply Chain Test Finished${NC}"
+echo -e "${GREEN}âœ“ Complete Supply Chain Test Finished${NC}"
 echo "=========================================="
 echo ""
 echo "Summary:"
-echo "1. ✓ Farmer uploaded collection event (COL001)"
-echo "2. ✓ Testing lab recorded quality test (QT001)"
-echo "3. ✓ Processor recorded processing step (PS001)"
-echo "4. ✓ Manufacturer created product with QR (PROD001)"
-echo "5. ✓ Consumer can scan QR code and get product details"
-echo "6. ✓ Complete provenance/traceability is available"
+echo "1. âœ“ Farmer uploaded collection event (COL001)"
+echo "2. âœ“ Testing lab recorded quality test (QT001)"
+echo "3. âœ“ Processor recorded processing step (PS001)"
+echo "4. âœ“ Manufacturer created product with QR (PROD001)"
+echo "5. âœ“ Consumer can scan QR code and get product details"
+echo "6. âœ“ Complete provenance/traceability is available"
 echo ""
 echo "Network is ready for web portal and mobile app integration!"
 echo ""

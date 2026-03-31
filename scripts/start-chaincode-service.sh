@@ -9,7 +9,7 @@ CHAINCODE_VERSION="1.0"
 CHAINCODE_CCID="${CHAINCODE_NAME}_${CHAINCODE_VERSION}"
 CHAINCODE_PORT=9999
 
-echo "🔄 Starting Chaincode as a Service (CCAAS): $CHAINCODE_CCID on port $CHAINCODE_PORT"
+echo "ðŸ”„ Starting Chaincode as a Service (CCAAS): $CHAINCODE_CCID on port $CHAINCODE_PORT"
 
 # Create a Docker network for chaincode if it doesn't exist
 docker network create chaincode-network 2>/dev/null || true
@@ -26,6 +26,6 @@ docker run -d \
   hyperledger/fabric-ccenv:2.5 \
   sh -c "cd /opt/gopath && go build -o ${CHAINCODE_NAME} && ./${CHAINCODE_NAME}"
 
-echo "✅ Chaincode service started"
+echo "âœ… Chaincode service started"
 echo "   Name: $CHAINCODE_CCID"
 echo "   Port: $CHAINCODE_PORT"

@@ -3,7 +3,7 @@
 # Script to clean up old ayurtrace network and deploy fresh HerbalTrace network
 
 echo "=========================================="
-echo "🧹 Cleaning Old Network & Deploying HerbalTrace"
+echo "ðŸ§¹ Cleaning Old Network & Deploying HerbalTrace"
 echo "=========================================="
 echo ""
 
@@ -17,7 +17,7 @@ NC='\033[0m'
 echo -e "${YELLOW}Step 1: Stopping existing ayurtrace network...${NC}"
 docker stop $(docker ps -aq --filter "name=ayurtrace") 2>/dev/null || true
 docker rm $(docker ps -aq --filter "name=ayurtrace") 2>/dev/null || true
-echo -e "${GREEN}✅ Old network stopped${NC}"
+echo -e "${GREEN}âœ… Old network stopped${NC}"
 echo ""
 
 # Step 2: Clean up old volumes and networks
@@ -25,7 +25,7 @@ echo -e "${YELLOW}Step 2: Cleaning up old volumes...${NC}"
 docker volume rm $(docker volume ls -q --filter "name=ayurtrace") 2>/dev/null || true
 docker network rm ayurtrace-network 2>/dev/null || true
 docker network prune -f 2>/dev/null || true
-echo -e "${GREEN}✅ Cleanup complete${NC}"
+echo -e "${GREEN}âœ… Cleanup complete${NC}"
 echo ""
 
 # Step 3: Navigate to HerbalTrace directory
@@ -88,12 +88,12 @@ EOF
 # Generate certificates
 if command -v cryptogen &> /dev/null; then
     cryptogen generate --config=crypto-config.yaml --output=organizations
-    echo -e "${GREEN}✅ Crypto material generated${NC}"
+    echo -e "${GREEN}âœ… Crypto material generated${NC}"
 else
-    echo -e "${RED}❌ cryptogen not found. Using Docker to generate...${NC}"
+    echo -e "${RED}âŒ cryptogen not found. Using Docker to generate...${NC}"
     docker run --rm -v "$(pwd)":/work -w /work hyperledger/fabric-tools:2.5 \
         cryptogen generate --config=crypto-config.yaml --output=organizations
-    echo -e "${GREEN}✅ Crypto material generated with Docker${NC}"
+    echo -e "${GREEN}âœ… Crypto material generated with Docker${NC}"
 fi
 echo ""
 
@@ -115,9 +115,9 @@ if command -v configtxgen &> /dev/null; then
         -channelID herbaltrace \
         -configPath ./configtx
     
-    echo -e "${GREEN}✅ Genesis block and channel artifacts created${NC}"
+    echo -e "${GREEN}âœ… Genesis block and channel artifacts created${NC}"
 else
-    echo -e "${RED}❌ configtxgen not found. Using Docker...${NC}"
+    echo -e "${RED}âŒ configtxgen not found. Using Docker...${NC}"
     docker run --rm -v "$(pwd)":/work -w /work \
         -e FABRIC_CFG_PATH=/work/configtx \
         hyperledger/fabric-tools:2.5 \
@@ -132,7 +132,7 @@ else
         -outputCreateChannelTx /work/channel-artifacts/herbaltrace.tx \
         -channelID herbaltrace
     
-    echo -e "${GREEN}✅ Artifacts created with Docker${NC}"
+    echo -e "${GREEN}âœ… Artifacts created with Docker${NC}"
 fi
 echo ""
 
@@ -142,7 +142,7 @@ docker-compose -f docker/docker-compose-herbaltrace.yaml up -d
 
 echo "Waiting for network to initialize..."
 sleep 10
-echo -e "${GREEN}✅ Network started${NC}"
+echo -e "${GREEN}âœ… Network started${NC}"
 echo ""
 
 # Step 7: Verify containers
@@ -163,9 +163,9 @@ docker exec cli peer channel create \
     --cafile /etc/hyperledger/fabric/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Channel created${NC}"
+    echo -e "${GREEN}âœ… Channel created${NC}"
 else
-    echo -e "${RED}❌ Channel creation failed${NC}"
+    echo -e "${RED}âŒ Channel creation failed${NC}"
 fi
 
 sleep 3
@@ -218,7 +218,7 @@ docker exec -e CORE_PEER_LOCALMSPID=ManufacturersMSP \
     -e CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/organizations/peerOrganizations/manufacturers.herbaltrace.com/users/Admin@manufacturers.herbaltrace.com/msp \
     cli peer channel join -b /etc/hyperledger/channel-artifacts/herbaltrace.block
 
-echo -e "${GREEN}✅ All peers joined to channel${NC}"
+echo -e "${GREEN}âœ… All peers joined to channel${NC}"
 echo ""
 
 # Step 9: Package and deploy chaincode
@@ -238,7 +238,7 @@ echo "Installing chaincode on peers..."
 
 echo ""
 echo "=========================================="
-echo -e "${GREEN}🎉 HerbalTrace Network Deployed!${NC}"
+echo -e "${GREEN}ðŸŽ‰ HerbalTrace Network Deployed!${NC}"
 echo "=========================================="
 echo ""
 echo "Network Status:"

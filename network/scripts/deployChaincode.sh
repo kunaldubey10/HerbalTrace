@@ -39,6 +39,26 @@ set_globals_invoke() {
     cli "$@"
 }
 
+install_for_org() {
+  local MSP="$1"
+  local ADDR="$2"
+  local CRT="$3"
+  local MSPPATH="$4"
+
+  set +e
+  local output
+  output=$(set_globals_invoke "$MSP" "$ADDR" "$CRT" "$MSPPATH" \
+    peer lifecycle chaincode install "$PKG_FILE" 2>&1)
+  local rc=$?
+  set -e
+
+  echo "$output"
+  if [ $rc -ne 0 ] && ! echo "$output" | grep -qi "already successfully installed"; then
+    echo "Error: failed to install chaincode for ${MSP}"
+    exit $rc
+  fi
+}
+
 approve_for_org() {
   local MSP="$1"
   local ADDR="$2"
@@ -58,6 +78,26 @@ approve_for_org() {
       --sequence "$CC_SEQUENCE"
 }
 
+approve_for_org_safe() {
+  local MSP="$1"
+  local ADDR="$2"
+  local CRT="$3"
+  local MSPPATH="$4"
+  local PACKAGE_ID="$5"
+
+  set +e
+  local output
+  output=$(approve_for_org "$MSP" "$ADDR" "$CRT" "$MSPPATH" "$PACKAGE_ID" 2>&1)
+  local rc=$?
+  set -e
+
+  echo "$output"
+  if [ $rc -ne 0 ] && ! echo "$output" | grep -qi "attempted to redefine uncommitted"; then
+    echo "Error: failed to approve chaincode for ${MSP}"
+    exit $rc
+  fi
+}
+
 echo "Preparing chaincode source in cli container..."
 copy_chaincode_if_missing
 
@@ -65,25 +105,21 @@ echo "Packaging chaincode ${CC_NAME}..."
 docker exec cli peer lifecycle chaincode package "$PKG_FILE" --path "$CC_PATH" --lang "$CC_LANG" --label "$CC_LABEL"
 
 echo "Installing chaincode on all org peers..."
-set_globals_invoke "FarmersCoopMSP" "peer0.farmers.herbaltrace.com:7051" \
+install_for_org "FarmersCoopMSP" "peer0.farmers.herbaltrace.com:7051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/peers/peer0.farmers.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/users/Admin@farmers.herbaltrace.com/msp" \
-  peer lifecycle chaincode install "$PKG_FILE"
 
-set_globals_invoke "TestingLabsMSP" "peer0.labs.herbaltrace.com:9051" \
+install_for_org "TestingLabsMSP" "peer0.labs.herbaltrace.com:9051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/labs.herbaltrace.com/peers/peer0.labs.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/labs.herbaltrace.com/users/Admin@labs.herbaltrace.com/msp" \
-  peer lifecycle chaincode install "$PKG_FILE"
 
-set_globals_invoke "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \
+install_for_org "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/users/Admin@processors.herbaltrace.com/msp" \
-  peer lifecycle chaincode install "$PKG_FILE"
 
-set_globals_invoke "ManufacturersMSP" "peer0.manufacturers.herbaltrace.com:13051" \
+install_for_org "ManufacturersMSP" "peer0.manufacturers.herbaltrace.com:13051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/peers/peer0.manufacturers.herbaltrace.com/tls/ca.crt" \
-  "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/users/Admin@manufacturers.herbaltrace.com/msp" \
-  peer lifecycle chaincode install "$PKG_FILE"
+  "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/users/Admin@manufacturers.herbaltrace.com/msp"
 
 echo "Resolving package ID..."
 PACKAGE_ID=$(set_globals_invoke "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \
@@ -99,25 +135,40 @@ fi
 echo "PACKAGE_ID=$PACKAGE_ID"
 
 echo "Approving chaincode for all orgs..."
-approve_for_org "FarmersCoopMSP" "peer0.farmers.herbaltrace.com:7051" \
+approve_for_org_safe "FarmersCoopMSP" "peer0.farmers.herbaltrace.com:7051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/peers/peer0.farmers.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/users/Admin@farmers.herbaltrace.com/msp" \
   "$PACKAGE_ID"
 
-approve_for_org "TestingLabsMSP" "peer0.labs.herbaltrace.com:9051" \
+approve_for_org_safe "TestingLabsMSP" "peer0.labs.herbaltrace.com:9051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/labs.herbaltrace.com/peers/peer0.labs.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/labs.herbaltrace.com/users/Admin@labs.herbaltrace.com/msp" \
   "$PACKAGE_ID"
 
-approve_for_org "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \
+approve_for_org_safe "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/users/Admin@processors.herbaltrace.com/msp" \
   "$PACKAGE_ID"
 
-approve_for_org "ManufacturersMSP" "peer0.manufacturers.herbaltrace.com:13051" \
+approve_for_org_safe "ManufacturersMSP" "peer0.manufacturers.herbaltrace.com:13051" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/peers/peer0.manufacturers.herbaltrace.com/tls/ca.crt" \
   "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/users/Admin@manufacturers.herbaltrace.com/msp" \
   "$PACKAGE_ID"
+
+echo "Checking if chaincode is already committed..."
+set +e
+COMMITTED_OUTPUT=$(set_globals_invoke "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \
+  "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt" \
+  "/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/users/Admin@processors.herbaltrace.com/msp" \
+  peer lifecycle chaincode querycommitted --channelID "$CHANNEL_NAME" --name "$CC_NAME" 2>&1)
+set -e
+
+if echo "$COMMITTED_OUTPUT" | grep -q "Version: ${CC_VERSION}" && echo "$COMMITTED_OUTPUT" | grep -q "Sequence: ${CC_SEQUENCE}"; then
+  echo "$COMMITTED_OUTPUT"
+  echo "Chaincode definition already committed."
+  echo "Chaincode deployment completed successfully"
+  exit 0
+fi
 
 echo "Committing chaincode definition..."
 set_globals_invoke "ProcessorsMSP" "peer0.processors.herbaltrace.com:11051" \

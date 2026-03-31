@@ -540,12 +540,12 @@ echo
 ##############################################
 # Complete!
 ##############################################
-infoln "🎉 HerbalTrace Network Setup Complete! 🎉"
+infoln "ðŸŽ‰ HerbalTrace Network Setup Complete! ðŸŽ‰"
 echo
-println "✅ Hyperledger Fabric network is running"
-println "✅ 4 organizations with 8 peers deployed"
-println "✅ RAFT orderer cluster (3 nodes) running"
-println "✅ HerbalTrace chaincode deployed and initialized"
+println "âœ… Hyperledger Fabric network is running"
+println "âœ… 4 organizations with 8 peers deployed"
+println "âœ… RAFT orderer cluster (3 nodes) running"
+println "âœ… HerbalTrace chaincode deployed and initialized"
 echo
 println "Next Steps:"
 println "1. Start the backend API server:"
@@ -567,6 +567,6 @@ println "- View logs: docker logs <container_name>"
 println "- Stop network: cd ${PROJECT_ROOT}/network/docker && docker compose -f docker-compose-herbaltrace.yaml down"
 println "- Restart network: cd ${PROJECT_ROOT}/network/docker && docker compose -f docker-compose-herbaltrace.yaml restart"
 echo
-println "📚 For full documentation, see: ${PROJECT_ROOT}/README.md"
+println "ðŸ“š For full documentation, see: ${PROJECT_ROOT}/README.md"
 echo
-infoln "Happy tracing! 🌿"
+infoln "Happy tracing! ðŸŒ¿"

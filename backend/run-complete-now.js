@@ -45,29 +45,42 @@ async function main() {
     const collectionId = cRes.data.data.id;
     console.log(`Collection created: ${collectionId} (syncStatus=${cRes.data.syncStatus})`);
 
-    // Sync pending collections after create so batch workflow can proceed with the latest record.
-    execSync('node sync-collections-now.js', { cwd: __dirname, stdio: 'inherit' });
+    let batch = null;
+    if (cRes.data.autoBatch?.id) {
+      batch = {
+        id: cRes.data.autoBatch.id,
+        batch_number: cRes.data.autoBatch.batchNumber,
+        species: cRes.data.data.species,
+        total_quantity: cRes.data.data.quantity
+      };
+      console.log(`Using auto-created batch: ${batch.batch_number} (id=${batch.id})`);
+    } else {
+      // Fallback path for older route behavior: sync and create batch manually.
+      execSync('node sync-collections-now.js', { cwd: __dirname, stdio: 'inherit' });
 
-    const syncedRes = await axios.get(`${API}/collections?syncStatus=synced&limit=50`, {
-      headers: { Authorization: `Bearer ${admin.token}` }
-    });
+      const syncedRes = await axios.get(`${API}/collections?syncStatus=synced&limit=50`, {
+        headers: { Authorization: `Bearer ${admin.token}` }
+      });
 
-    const synced = syncedRes.data.data || [];
-    if (!synced.length) throw new Error('No synced collections available after sync step');
+      const synced = syncedRes.data.data || [];
+      const selected = synced.find((c) => c.id === collectionId);
+      if (!selected) {
+        throw new Error('Created collection was not found in synced list and no auto batch was returned.');
+      }
 
-    const selected = synced.find((c) => c.id === collectionId) || synced[0];
-    const batchPayload = {
-      species: selected.species,
-      collectionIds: [selected.id],
-      notes: 'Automated complete flow run'
-    };
+      const batchPayload = {
+        species: selected.species,
+        collectionIds: [selected.id],
+        notes: 'Automated complete flow run'
+      };
 
-    const bRes = await axios.post(`${API}/batches`, batchPayload, {
-      headers: { Authorization: `Bearer ${admin.token}` }
-    });
+      const bRes = await axios.post(`${API}/batches`, batchPayload, {
+        headers: { Authorization: `Bearer ${admin.token}` }
+      });
 
-    const batch = bRes.data.data;
-    console.log(`Batch created: ${batch.batch_number} (id=${batch.id})`);
+      batch = bRes.data.data;
+      console.log(`Batch created: ${batch.batch_number} (id=${batch.id})`);
+    }
 
     const qcPayload = {
       batch_id: String(batch.id),

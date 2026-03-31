@@ -65,4 +65,4 @@ operations:
     enabled: false
 EOF
 
-echo "✅ Peer configuration created at $NETWORK_DIR/peercfg/core.yaml"
+echo "âœ… Peer configuration created at $NETWORK_DIR/peercfg/core.yaml"

@@ -147,7 +147,7 @@ volumes:
   grafana_data:
 EOF
 
-echo "✅ Monitoring configuration created"
+echo "âœ… Monitoring configuration created"
 echo "Start monitoring stack: cd monitoring && docker-compose -f docker-compose-monitoring.yaml up -d"
 echo "Access Grafana at: http://localhost:3000 (admin/admin)"
 echo "Access Prometheus at: http://localhost:9090"

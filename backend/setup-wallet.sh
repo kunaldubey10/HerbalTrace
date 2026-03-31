@@ -59,7 +59,7 @@ create_identity() {
 }
 EOF
     
-    echo "✓ Created identity for admin-${org}"
+    echo "âœ“ Created identity for admin-${org}"
 }
 
 # Create identities for each organization

@@ -66,7 +66,7 @@ function warnln() {
 CHANNEL_NAME="herbaltrace-channel"
 CHAINCODE_NAME="herbaltrace"
 CHAINCODE_VERSION="1.0"
-CHAINCODE_PATH="../chaincode/herbaltrace"
+CHAINCODE_PATH="/opt/gopath/src/github.com/chaincode/herbaltrace"
 CHAINCODE_LANG="golang"
 DATABASE="couchdb"
 USE_CA="true"

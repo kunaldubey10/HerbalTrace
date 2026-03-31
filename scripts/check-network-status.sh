@@ -3,7 +3,7 @@
 # Simple Network Status Check for Existing Ayurtrace Network
 
 echo "=================================="
-echo "🔍 HerbalTrace/Ayurtrace Network Status"
+echo "ðŸ” HerbalTrace/Ayurtrace Network Status"
 echo "=================================="
 echo ""
 
@@ -47,25 +47,25 @@ echo "=================================="
 
 # Count containers
 TOTAL=$(docker ps | grep -c ayurtrace)
-echo -e "${GREEN}✅ $TOTAL containers running${NC}"
+echo -e "${GREEN}âœ… $TOTAL containers running${NC}"
 
 # Check if orderer is accessible
 if docker exec orderer1.ayurtrace.com peer version > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Orderer is accessible${NC}"
+    echo -e "${GREEN}âœ… Orderer is accessible${NC}"
 else
-    echo "❌ Orderer not accessible"
+    echo "âŒ Orderer not accessible"
 fi
 
 # Check if at least one peer is accessible
 if docker exec peer0.farmers.ayurtrace.com peer version > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Peers are accessible${NC}"
+    echo -e "${GREEN}âœ… Peers are accessible${NC}"
 else
-    echo "❌ Peers not accessible"
+    echo "âŒ Peers not accessible"
 fi
 
 echo ""
 echo "=================================="
-echo "📝 Next Steps to Test Transactions:"
+echo "ðŸ“ Next Steps to Test Transactions:"
 echo "=================================="
 echo "The network is running but needs:"
 echo "  1. Channel to be created and joined"

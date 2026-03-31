@@ -4,7 +4,7 @@
 # This fixes configuration issues and restarts the network
 
 echo "==========================================="
-echo "🔄 HerbalTrace Network Complete Restart"
+echo "ðŸ”„ HerbalTrace Network Complete Restart"
 echo "==========================================="
 echo ""
 
@@ -13,7 +13,7 @@ cd /mnt/d/Trial/HerbalTrace/network
 # Step 1: Stop all containers
 echo "1. Stopping all HerbalTrace containers..."
 docker-compose -f docker/docker-compose-herbaltrace.yaml down
-echo "✅ Containers stopped"
+echo "âœ… Containers stopped"
 echo ""
 
 # Step 2: Ensure peercfg exists
@@ -43,7 +43,7 @@ ledger:
     stateDatabase: GoLevelDB
 EOF
 fi
-echo "✅ Configuration ready"
+echo "âœ… Configuration ready"
 echo ""
 
 # Step 3: Start network
@@ -66,7 +66,7 @@ docker logs peer0.farmers.herbaltrace.com --tail 10 2>&1 | tail -5
 echo ""
 
 echo "==========================================="
-echo "✅ Network restart complete!"
+echo "âœ… Network restart complete!"
 echo "==========================================="
 echo ""
 echo "To verify:"

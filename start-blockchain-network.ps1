@@ -4,6 +4,9 @@ Write-Host "  STARTING HYPERLEDGER FABRIC NETWORK" -ForegroundColor Yellow
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$networkDir = Join-Path $root "network"
+
 # Check Docker
 Write-Host "Checking Docker..." -NoNewline
 try {
@@ -34,7 +37,7 @@ Write-Host "================================================" -ForegroundColor C
 Write-Host ""
 
 # Navigate to network directory
-Set-Location -Path "d:\Trial\HerbalTrace\network"
+Set-Location -Path $networkDir
 
 Write-Host "Step 1: Cleaning up any existing network..." -ForegroundColor Cyan
 bash ./deploy-network.sh down
@@ -83,7 +86,7 @@ Write-Host "  ProcessorOrg: http://localhost:11984" -ForegroundColor White
 Write-Host ""
 
 # Go back to main directory
-Set-Location -Path "d:\Trial\HerbalTrace"
+Set-Location -Path $root
 
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""

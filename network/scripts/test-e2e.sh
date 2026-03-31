@@ -41,9 +41,9 @@ echo -e "${YELLOW}Step 1: Farmer creates collection event${NC}"
 docker exec cli bash -c 'peer chaincode invoke -o orderer.herbaltrace.com:7050 --ordererTLSHostnameOverride orderer.herbaltrace.com --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem -C herbaltrace-channel -n herbaltrace --peerAddresses peer0.farmers.herbaltrace.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/peers/peer0.farmers.herbaltrace.com/tls/ca.crt --peerAddresses peer0.labs.herbaltrace.com:9051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/labs.herbaltrace.com/peers/peer0.labs.herbaltrace.com/tls/ca.crt -c "{\"function\":\"CreateCollectionEvent\",\"Args\":[\"$(cat /tmp/col001.json)\"]}"'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Collection event created${NC}"
+    echo -e "${GREEN}âœ“ Collection event created${NC}"
 else
-    echo -e "${RED}✗ Failed${NC}"
+    echo -e "${RED}âœ— Failed${NC}"
     exit 1
 fi
 
@@ -62,9 +62,9 @@ echo -e "${YELLOW}Step 3: Testing lab records quality test${NC}"
 docker exec cli bash -c 'peer chaincode invoke -o orderer.herbaltrace.com:7050 --ordererTLSHostnameOverride orderer.herbaltrace.com --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem -C herbaltrace-channel -n herbaltrace --peerAddresses peer0.labs.herbaltrace.com:9051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/labs.herbaltrace.com/peers/peer0.labs.herbaltrace.com/tls/ca.crt --peerAddresses peer0.processors.herbaltrace.com:11051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt -c "{\"function\":\"CreateQualityTest\",\"Args\":[\"$(cat /tmp/qt001.json)\"]}"'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Quality test recorded${NC}"
+    echo -e "${GREEN}âœ“ Quality test recorded${NC}"
 else
-    echo -e "${RED}✗ Failed${NC}"
+    echo -e "${RED}âœ— Failed${NC}"
 fi
 
 sleep 5
@@ -82,9 +82,9 @@ echo -e "${YELLOW}Step 5: Processor records processing${NC}"
 docker exec cli bash -c 'peer chaincode invoke -o orderer.herbaltrace.com:7050 --ordererTLSHostnameOverride orderer.herbaltrace.com --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem -C herbaltrace-channel -n herbaltrace --peerAddresses peer0.processors.herbaltrace.com:11051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt --peerAddresses peer0.manufacturers.herbaltrace.com:13051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/peers/peer0.manufacturers.herbaltrace.com/tls/ca.crt -c "{\"function\":\"CreateProcessingStep\",\"Args\":[\"$(cat /tmp/ps001.json)\"]}"'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Processing step recorded${NC}"
+    echo -e "${GREEN}âœ“ Processing step recorded${NC}"
 else
-    echo -e "${RED}✗ Failed${NC}"
+    echo -e "${RED}âœ— Failed${NC}"
 fi
 
 sleep 5
@@ -102,9 +102,9 @@ echo -e "${YELLOW}Step 7: Manufacturer creates product with QR${NC}"
 docker exec cli bash -c 'peer chaincode invoke -o orderer.herbaltrace.com:7050 --ordererTLSHostnameOverride orderer.herbaltrace.com --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem -C herbaltrace-channel -n herbaltrace --peerAddresses peer0.manufacturers.herbaltrace.com:13051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/manufacturers.herbaltrace.com/peers/peer0.manufacturers.herbaltrace.com/tls/ca.crt --peerAddresses peer0.farmers.herbaltrace.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/peers/peer0.farmers.herbaltrace.com/tls/ca.crt -c "{\"function\":\"CreateProduct\",\"Args\":[\"$(cat /tmp/prod001.json)\"]}"'
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Product created${NC}"
+    echo -e "${GREEN}âœ“ Product created${NC}"
 else
-    echo -e "${RED}✗ Failed${NC}"
+    echo -e "${RED}âœ— Failed${NC}"
 fi
 
 sleep 5
@@ -136,15 +136,15 @@ docker ps --filter 'name=dev-peer' --format 'table {{.Names}}\t{{.Status}}'
 
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✓ Complete Supply Chain Test Finished${NC}"
+echo -e "${GREEN}âœ“ Complete Supply Chain Test Finished${NC}"
 echo "=========================================="
 echo ""
 echo "Summary:"
-echo "1. ✓ Farmer uploaded collection (COL001)"
-echo "2. ✓ Lab recorded quality test (QT001)"
-echo "3. ✓ Processor recorded processing (PS001)"
-echo "4. ✓ Manufacturer created product (PROD001)"
-echo "5. ✓ QR code generation (QR-PROD001-2025)"
-echo "6. ✓ Complete provenance available"
+echo "1. âœ“ Farmer uploaded collection (COL001)"
+echo "2. âœ“ Lab recorded quality test (QT001)"
+echo "3. âœ“ Processor recorded processing (PS001)"
+echo "4. âœ“ Manufacturer created product (PROD001)"
+echo "5. âœ“ QR code generation (QR-PROD001-2025)"
+echo "6. âœ“ Complete provenance available"
 echo ""
 echo "Network ready for web portal/app integration!"

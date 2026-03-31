@@ -38,7 +38,7 @@ export ORDERER_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizatio
 echo -e "\n${YELLOW}[PHASE 1] Setting up Season Windows and Harvest Limits${NC}"
 
 # Create Season Window for Ashwagandha (Winter: Nov-Feb)
-echo -e "${GREEN}→ Creating season window for Ashwagandha (Winter)${NC}"
+echo -e "${GREEN}â†’ Creating season window for Ashwagandha (Winter)${NC}"
 docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -50,7 +50,7 @@ docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
 sleep 2
 
 # Create Harvest Limit for Farmer FARM001
-echo -e "${GREEN}→ Creating harvest limit for Farmer FARM001${NC}"
+echo -e "${GREEN}â†’ Creating harvest limit for Farmer FARM001${NC}"
 docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -66,18 +66,18 @@ sleep 2
 # ==============================================================================
 echo -e "\n${YELLOW}[PHASE 2] Creating Collection Event${NC}"
 
-echo -e "${GREEN}→ Farmer FARM001 harvests 50kg Ashwagandha${NC}"
+echo -e "${GREEN}â†’ Farmer FARM001 harvests 50kg Ashwagandha${NC}"
 COLLECTION_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
   -C $CHANNEL_NAME -n $CHAINCODE_NAME \
-  -c '{"function":"CreateCollectionEvent","Args":["{\"farmerId\":\"FARM001\",\"farmerName\":\"Rajesh Kumar\",\"species\":\"Ashwagandha\",\"commonName\":\"Indian Ginseng\",\"scientificName\":\"Withania somnifera\",\"quantity\":50,\"unit\":\"kg\",\"harvestDate\":\"2025-11-30\",\"timestamp\":\"2025-11-30T10:00:00Z\",\"latitude\":23.2599,\"longitude\":77.4126,\"altitude\":500,\"accuracy\":5,\"harvestMethod\":\"manual\",\"partCollected\":\"roots\",\"weatherConditions\":\"Temperature: 22°C, Humidity: 55%, Conditions: Clear\",\"images\":[\"Qm...\"],\"approvedZone\":true,\"zoneName\":\"Madhya Pradesh\",\"conservationStatus\":\"LC\",\"status\":\"pending\"}"]}' \
+  -c '{"function":"CreateCollectionEvent","Args":["{\"farmerId\":\"FARM001\",\"farmerName\":\"Rajesh Kumar\",\"species\":\"Ashwagandha\",\"commonName\":\"Indian Ginseng\",\"scientificName\":\"Withania somnifera\",\"quantity\":50,\"unit\":\"kg\",\"harvestDate\":\"2025-11-30\",\"timestamp\":\"2025-11-30T10:00:00Z\",\"latitude\":23.2599,\"longitude\":77.4126,\"altitude\":500,\"accuracy\":5,\"harvestMethod\":\"manual\",\"partCollected\":\"roots\",\"weatherConditions\":\"Temperature: 22Â°C, Humidity: 55%, Conditions: Clear\",\"images\":[\"Qm...\"],\"approvedZone\":true,\"zoneName\":\"Madhya Pradesh\",\"conservationStatus\":\"LC\",\"status\":\"pending\"}"]}' \
   --peerAddresses peer0.farmers.herbaltrace.com:7051 \
   --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/farmers.herbaltrace.com/peers/peer0.farmers.herbaltrace.com/tls/ca.crt 2>&1)
 
 echo "$COLLECTION_RESULT"
 COLLECTION_ID=$(echo "$COLLECTION_RESULT" | grep -o 'CE-[A-Z0-9]*' | head -1)
-echo -e "${BLUE}✓ Collection Event ID: ${COLLECTION_ID}${NC}"
+echo -e "${BLUE}âœ“ Collection Event ID: ${COLLECTION_ID}${NC}"
 
 sleep 3
 
@@ -86,7 +86,7 @@ sleep 3
 # ==============================================================================
 echo -e "\n${YELLOW}[PHASE 3] Creating Batch${NC}"
 
-echo -e "${GREEN}→ Creating batch from collection event ${COLLECTION_ID}${NC}"
+echo -e "${GREEN}â†’ Creating batch from collection event ${COLLECTION_ID}${NC}"
 BATCH_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -97,12 +97,12 @@ BATCH_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:
 
 echo "$BATCH_RESULT"
 BATCH_ID=$(echo "$BATCH_RESULT" | grep -o 'BATCH-[A-Z0-9]*' | head -1)
-echo -e "${BLUE}✓ Batch ID: ${BATCH_ID}${NC}"
+echo -e "${BLUE}âœ“ Batch ID: ${BATCH_ID}${NC}"
 
 sleep 3
 
 # Verify batch created
-echo -e "${GREEN}→ Verifying batch ${BATCH_ID}${NC}"
+echo -e "${GREEN}â†’ Verifying batch ${BATCH_ID}${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c "{\"function\":\"GetBatch\",\"Args\":[\"${BATCH_ID}\"]}"
 
@@ -113,7 +113,7 @@ sleep 2
 # ==============================================================================
 echo -e "\n${YELLOW}[PHASE 4] Quality Testing${NC}"
 
-echo -e "${GREEN}→ Lab LAB001 testing batch ${BATCH_ID}${NC}"
+echo -e "${GREEN}â†’ Lab LAB001 testing batch ${BATCH_ID}${NC}"
 QUALITY_TEST_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -124,7 +124,7 @@ QUALITY_TEST_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltra
 
 echo "$QUALITY_TEST_RESULT"
 TEST_ID=$(echo "$QUALITY_TEST_RESULT" | grep -o 'TEST-[A-Z0-9]*' | head -1)
-echo -e "${BLUE}✓ Quality Test ID: ${TEST_ID}${NC}"
+echo -e "${BLUE}âœ“ Quality Test ID: ${TEST_ID}${NC}"
 
 sleep 3
 
@@ -134,7 +134,7 @@ sleep 3
 echo -e "\n${YELLOW}[PHASE 5] Processing Steps${NC}"
 
 # Assign batch to processor
-echo -e "${GREEN}→ Assigning batch ${BATCH_ID} to processor PROC001${NC}"
+echo -e "${GREEN}â†’ Assigning batch ${BATCH_ID} to processor PROC001${NC}"
 docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -146,7 +146,7 @@ docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
 sleep 2
 
 # Create Processing Step 1: Drying
-echo -e "${GREEN}→ Processing Step 1: Drying${NC}"
+echo -e "${GREEN}â†’ Processing Step 1: Drying${NC}"
 PROCESSING1_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -157,12 +157,12 @@ PROCESSING1_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrac
 
 echo "$PROCESSING1_RESULT"
 PROCESSING1_ID=$(echo "$PROCESSING1_RESULT" | grep -o 'PROC-[A-Z0-9]*' | head -1)
-echo -e "${BLUE}✓ Processing Step 1 ID: ${PROCESSING1_ID}${NC}"
+echo -e "${BLUE}âœ“ Processing Step 1 ID: ${PROCESSING1_ID}${NC}"
 
 sleep 3
 
 # Create Processing Step 2: Grinding
-echo -e "${GREEN}→ Processing Step 2: Grinding${NC}"
+echo -e "${GREEN}â†’ Processing Step 2: Grinding${NC}"
 PROCESSING2_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -173,7 +173,7 @@ PROCESSING2_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrac
 
 echo "$PROCESSING2_RESULT"
 PROCESSING2_ID=$(echo "$PROCESSING2_RESULT" | grep -o 'PROC-[A-Z0-9]*' | head -1)
-echo -e "${BLUE}✓ Processing Step 2 ID: ${PROCESSING2_ID}${NC}"
+echo -e "${BLUE}âœ“ Processing Step 2 ID: ${PROCESSING2_ID}${NC}"
 
 sleep 3
 
@@ -182,7 +182,7 @@ sleep 3
 # ==============================================================================
 echo -e "\n${YELLOW}[PHASE 6] Product Creation${NC}"
 
-echo -e "${GREEN}→ Manufacturer MFG001 creating final product${NC}"
+echo -e "${GREEN}â†’ Manufacturer MFG001 creating final product${NC}"
 PRODUCT_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.com:7050 \
   --ordererTLSHostnameOverride orderer.herbaltrace.com \
   --tls --cafile $ORDERER_CA \
@@ -193,7 +193,7 @@ PRODUCT_RESULT=$(docker exec cli peer chaincode invoke -o orderer.herbaltrace.co
 
 echo "$PRODUCT_RESULT"
 PRODUCT_ID=$(echo "$PRODUCT_RESULT" | grep -o 'PROD-[A-Z0-9]*' | head -1)
-echo -e "${BLUE}✓ Product ID: ${PRODUCT_ID}${NC}"
+echo -e "${BLUE}âœ“ Product ID: ${PRODUCT_ID}${NC}"
 
 sleep 3
 
@@ -203,28 +203,28 @@ sleep 3
 echo -e "\n${YELLOW}[PHASE 7] Testing Rich Queries${NC}"
 
 # Query batches by status
-echo -e "${GREEN}→ Querying batches with status 'collected'${NC}"
+echo -e "${GREEN}â†’ Querying batches with status 'collected'${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c '{"function":"QueryBatchesByStatus","Args":["collected"]}'
 
 sleep 1
 
 # Query batches by processor
-echo -e "${GREEN}→ Querying batches for processor PROC001${NC}"
+echo -e "${GREEN}â†’ Querying batches for processor PROC001${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c '{"function":"QueryBatchesByProcessor","Args":["PROC001"]}'
 
 sleep 1
 
 # Get pending batches
-echo -e "${GREEN}→ Getting pending batches${NC}"
+echo -e "${GREEN}â†’ Getting pending batches${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c '{"function":"GetPendingBatches","Args":[]}'
 
 sleep 1
 
 # Get active alerts
-echo -e "${GREEN}→ Getting active alerts${NC}"
+echo -e "${GREEN}â†’ Getting active alerts${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c '{"function":"GetActiveAlerts","Args":[]}'
 
@@ -235,7 +235,7 @@ sleep 1
 # ==============================================================================
 echo -e "\n${YELLOW}[PHASE 8] Provenance Retrieval${NC}"
 
-echo -e "${GREEN}→ Getting full provenance for product ${PRODUCT_ID}${NC}"
+echo -e "${GREEN}â†’ Getting full provenance for product ${PRODUCT_ID}${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c "{\"function\":\"GetProvenance\",\"Args\":[\"${PRODUCT_ID}\"]}"
 
@@ -245,14 +245,14 @@ docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
 echo -e "\n${YELLOW}[PHASE 9] Validation Tests${NC}"
 
 # Get harvest statistics
-echo -e "${GREEN}→ Getting harvest statistics for Farmer FARM001 (Ashwagandha)${NC}"
+echo -e "${GREEN}â†’ Getting harvest statistics for Farmer FARM001 (Ashwagandha)${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c '{"function":"GetHarvestStatistics","Args":["FARM001","Ashwagandha","Winter-2025"]}'
 
 sleep 1
 
 # Get season windows
-echo -e "${GREEN}→ Getting season windows for Ashwagandha${NC}"
+echo -e "${GREEN}â†’ Getting season windows for Ashwagandha${NC}"
 docker exec cli peer chaincode query -C $CHANNEL_NAME -n $CHAINCODE_NAME \
   -c '{"function":"GetSeasonWindows","Args":["Ashwagandha"]}'
 
@@ -264,11 +264,11 @@ sleep 1
 echo -e "\n${BLUE}========================================${NC}"
 echo -e "${BLUE}Test Summary${NC}"
 echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}✓ Collection Event ID: ${COLLECTION_ID}${NC}"
-echo -e "${GREEN}✓ Batch ID: ${BATCH_ID}${NC}"
-echo -e "${GREEN}✓ Quality Test ID: ${TEST_ID}${NC}"
-echo -e "${GREEN}✓ Processing Step 1 ID: ${PROCESSING1_ID}${NC}"
-echo -e "${GREEN}✓ Processing Step 2 ID: ${PROCESSING2_ID}${NC}"
-echo -e "${GREEN}✓ Product ID: ${PRODUCT_ID}${NC}"
+echo -e "${GREEN}âœ“ Collection Event ID: ${COLLECTION_ID}${NC}"
+echo -e "${GREEN}âœ“ Batch ID: ${BATCH_ID}${NC}"
+echo -e "${GREEN}âœ“ Quality Test ID: ${TEST_ID}${NC}"
+echo -e "${GREEN}âœ“ Processing Step 1 ID: ${PROCESSING1_ID}${NC}"
+echo -e "${GREEN}âœ“ Processing Step 2 ID: ${PROCESSING2_ID}${NC}"
+echo -e "${GREEN}âœ“ Product ID: ${PRODUCT_ID}${NC}"
 echo -e "\n${GREEN}All tests completed successfully!${NC}"
 echo -e "${BLUE}========================================${NC}"
