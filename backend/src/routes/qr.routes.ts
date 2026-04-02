@@ -39,18 +39,60 @@ router.get('/verify/:qrCode', async (req: Request, res: Response, next: NextFunc
 
     // Get QC tests and certificates
     const qcTests = await db.prepare(`
-      SELECT t.*, c.certificate_number, c.overall_result, c.issued_date
+      SELECT t.*, c.certificate_number, c.overall_result, c.issued_date, c.blockchain_txid
       FROM qc_tests t
       LEFT JOIN qc_certificates c ON t.id = c.test_id
       WHERE t.batch_id = ?
     `).all(product.batch_id) as any[];
 
-    // Try to get blockchain provenance
+    // ✅ ENHANCED: Get blockchain provenance and verify authenticity
     let blockchainProvenance = null;
+    let blockchainVerified = false;
+    let blockchainBatch = null;
+    let blockchainCertificates = [];
+    
     try {
       const fabricClient = getFabricClient();
       await fabricClient.connect('admin-FarmersCoop', 'FarmersCoop');
-      blockchainProvenance = await fabricClient.getProvenanceByQRCode(qrCode);
+      
+      // Try to get full provenance by QR code
+      try {
+        blockchainProvenance = await fabricClient.getProvenanceByQRCode(qrCode);
+        blockchainVerified = true;
+      } catch (err) {
+        logger.warn('Full provenance not available, trying individual queries');
+      }
+
+      // ✅ Verify batch on blockchain using transaction ID
+      if (batch.blockchain_tx_id) {
+        try {
+          const batchId = `BATCH-${batch.id}`;
+          blockchainBatch = await fabricClient.evaluateTransaction('GetBatch', batchId);
+          if (blockchainBatch) {
+            blockchainBatch = JSON.parse(blockchainBatch);
+            blockchainVerified = true;
+            logger.info(`✅ Batch ${batch.batch_number} verified on blockchain`);
+          }
+        } catch (err: any) {
+          logger.warn(`Batch verification failed: ${err.message}`);
+        }
+      }
+
+      // ✅ Verify QC certificates on blockchain
+      for (const qcTest of qcTests) {
+        if (qcTest.blockchain_txid && qcTest.certificate_number) {
+          try {
+            const certData = await fabricClient.evaluateTransaction('QueryQCCertificate', qcTest.certificate_number);
+            if (certData) {
+              blockchainCertificates.push(JSON.parse(certData));
+              logger.info(`✅ Certificate ${qcTest.certificate_number} verified on blockchain`);
+            }
+          } catch (err) {
+            logger.warn(`Certificate ${qcTest.certificate_number} not found on blockchain`);
+          }
+        }
+      }
+
       await fabricClient.disconnect();
     } catch (error: any) {
       logger.warn(`Could not fetch blockchain provenance: ${error.message}`);
@@ -80,6 +122,9 @@ router.get('/verify/:qrCode', async (req: Request, res: Response, next: NextFunc
         collectionCount: collections.length,
         status: batch.status,
         createdAt: batch.created_at,
+        blockchainTx: batch.blockchain_tx_id,
+        blockchainVerified: !!blockchainBatch,
+        blockchainData: blockchainBatch || null
       },
       collections: collections.map((c: any) => {
         let data = {};
@@ -114,23 +159,36 @@ router.get('/verify/:qrCode', async (req: Request, res: Response, next: NextFunc
         certificateNumber: t.certificate_number,
         overallResult: t.overall_result,
         issuedDate: t.issued_date,
+        blockchainTx: t.blockchain_txid,
+        blockchainVerified: blockchainCertificates.some((bc: any) => bc.certificateId === t.certificate_number)
       })),
-      blockchain: blockchainProvenance || {
-        available: false,
-        message: 'Blockchain data temporarily unavailable'
+      blockchain: {
+        available: blockchainVerified,
+        verified: blockchainVerified,
+        message: blockchainVerified 
+          ? 'Product data verified on blockchain' 
+          : 'Blockchain verification unavailable',
+        provenance: blockchainProvenance,
+        certificates: blockchainCertificates,
+        timestamp: new Date().toISOString()
       },
       verification: {
         verified: true,
+        blockchainVerified: blockchainVerified,
         verifiedAt: new Date().toISOString(),
         dataSource: 'HerbalTrace Platform',
+        authenticity: blockchainVerified ? 'VERIFIED_ON_BLOCKCHAIN' : 'DATABASE_ONLY',
+        trustLevel: blockchainVerified ? 'HIGH' : 'MEDIUM'
       },
     };
 
-    logger.info(`QR code scanned successfully: ${qrCode}`);
+    logger.info(`QR code scanned successfully: ${qrCode} (Blockchain verified: ${blockchainVerified})`);
 
     res.status(200).json({
       success: true,
-      message: 'Product verified successfully',
+      message: blockchainVerified 
+        ? 'Product verified successfully on blockchain'
+        : 'Product verified successfully',
       data: provenance,
     });
   } catch (error: any) {

@@ -381,6 +381,160 @@ export class FabricService {
   }
 
   /**
+   * Create Batch on blockchain
+   */
+  async createBatch(batchData: {
+    id: string;
+    batchNumber: string;
+    species: string;
+    totalQuantity: number;
+    unit: string;
+    collectionEventIds: string[];
+    createdBy: string;
+    createdByName?: string;
+    assignedTo?: string;
+    assignedToName?: string;
+    notes?: string;
+  }): Promise<{ txId: string; batchId: string }> {
+    try {
+      const batchPayload = {
+        id: batchData.id,
+        batchNumber: batchData.batchNumber,
+        species: batchData.species,
+        totalQuantity: batchData.totalQuantity,
+        unit: batchData.unit || 'kg',
+        collectionEventIds: batchData.collectionEventIds || [],
+        createdBy: batchData.createdBy,
+        createdByName: batchData.createdByName || '',
+        assignedTo: batchData.assignedTo || '',
+        assignedToName: batchData.assignedToName || '',
+        notes: batchData.notes || '',
+        status: 'created',
+        timestamp: new Date().toISOString()
+      };
+
+      logger.info(`Creating batch on blockchain: ${batchData.batchNumber}`, { batchPayload });
+
+      const contract = await this.getContract();
+      const transaction = contract.createTransaction('CreateBatch');
+      
+      const channel = (this.network as any)?.getChannel?.();
+      const endorsers = channel?.getEndorsers?.();
+      if (Array.isArray(endorsers) && endorsers.length > 0) {
+        transaction.setEndorsingPeers(endorsers);
+      }
+
+      const result = await transaction.submit(JSON.stringify(batchPayload));
+      const txId = transaction.getTransactionId();
+
+      logger.info(`✅ Batch created on blockchain: ${batchData.batchNumber} (TxID: ${txId})`);
+
+      return {
+        txId,
+        batchId: batchData.id
+      };
+    } catch (error: any) {
+      logger.error(`Failed to create batch on blockchain:`, error);
+      throw new Error(`Blockchain batch creation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get Batch from blockchain
+   */
+  async getBatch(batchId: string): Promise<any> {
+    try {
+      const result = await this.evaluateTransaction('GetBatch', batchId);
+      return JSON.parse(result);
+    } catch (error: any) {
+      logger.error(`Failed to get batch ${batchId} from blockchain:`, error);
+      throw new Error(`Blockchain batch query failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update Batch Status on blockchain
+   */
+  async updateBatchStatus(batchId: string, newStatus: string, updatedBy: string): Promise<{ txId: string }> {
+    try {
+      logger.info(`Updating batch status on blockchain: ${batchId} -> ${newStatus}`);
+
+      const contract = await this.getContract();
+      const transaction = contract.createTransaction('UpdateBatchStatus');
+      
+      const channel = (this.network as any)?.getChannel?.();
+      const endorsers = channel?.getEndorsers?.();
+      if (Array.isArray(endorsers) && endorsers.length > 0) {
+        transaction.setEndorsingPeers(endorsers);
+      }
+
+      await transaction.submit(batchId, newStatus, updatedBy);
+      const txId = transaction.getTransactionId();
+
+      logger.info(`✅ Batch status updated on blockchain: ${batchId} (TxID: ${txId})`);
+
+      return { txId };
+    } catch (error: any) {
+      logger.error(`Failed to update batch status on blockchain:`, error);
+      throw new Error(`Blockchain batch status update failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Assign Batch to Processor on blockchain
+   */
+  async assignBatchToProcessor(batchId: string, processorId: string, assignedBy: string): Promise<{ txId: string }> {
+    try {
+      logger.info(`Assigning batch to processor on blockchain: ${batchId} -> ${processorId}`);
+
+      const contract = await this.getContract();
+      const transaction = contract.createTransaction('AssignBatchToProcessor');
+      
+      const channel = (this.network as any)?.getChannel?.();
+      const endorsers = channel?.getEndorsers?.();
+      if (Array.isArray(endorsers) && endorsers.length > 0) {
+        transaction.setEndorsingPeers(endorsers);
+      }
+
+      await transaction.submit(batchId, processorId, assignedBy);
+      const txId = transaction.getTransactionId();
+
+      logger.info(`✅ Batch assigned on blockchain: ${batchId} (TxID: ${txId})`);
+
+      return { txId };
+    } catch (error: any) {
+      logger.error(`Failed to assign batch on blockchain:`, error);
+      throw new Error(`Blockchain batch assignment failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Query Batches by Status
+   */
+  async queryBatchesByStatus(status: string): Promise<any[]> {
+    try {
+      const result = await this.evaluateTransaction('QueryBatchesByStatus', status);
+      return JSON.parse(result);
+    } catch (error: any) {
+      logger.error(`Failed to query batches by status:`, error);
+      throw new Error(`Blockchain query failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get Batch History from blockchain
+   */
+  async getBatchHistory(batchId: string): Promise<any[]> {
+    try {
+      const result = await this.evaluateTransaction('GetBatchHistory', batchId);
+      return JSON.parse(result);
+    } catch (error: any) {
+      logger.error(`Failed to get batch history:`, error);
+      throw new Error(`Blockchain history query failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Get blockchain network info
    */
   async getNetworkInfo(): Promise<any> {

@@ -28,7 +28,7 @@ interface CollectionForBatch {
 
 interface BatchCreationParams {
   species: string;
-  collectionIds: number[];
+  collectionIds: (string | number)[]; // Can be string IDs (COL-xxx) or numeric IDs
   dateRange?: { start: string; end: string };
   locationRadius?: number; // km
   assignedTo?: string; // processor username

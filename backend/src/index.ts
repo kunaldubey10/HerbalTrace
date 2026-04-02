@@ -32,6 +32,8 @@ import healthRoutes from './routes/health.routes';
 import blockchainRoutes from './routes/blockchain.routes';
 import manufacturerRoutes from './routes/manufacturer.routes';
 import qrRoutes from './routes/qr.routes';
+import enumsRoutes from './routes/enums.routes';
+import complaintRoutes from './routes/complaint.routes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -133,6 +135,8 @@ app.use(`/${API_PREFIX}/health`, healthRoutes);
 app.use(`/${API_PREFIX}/blockchain`, blockchainRoutes);
 app.use(`/${API_PREFIX}/manufacturer`, manufacturerRoutes);
 app.use(`/${API_PREFIX}/qr`, qrRoutes);
+app.use(`/${API_PREFIX}/enums`, enumsRoutes);
+app.use(`/${API_PREFIX}/complaints`, complaintRoutes);
 
 // Verification page for QR codes (serves HTML, page fetches data from API)
 app.get('/verify/:qrCode', (req: Request, res: Response) => {
@@ -205,6 +209,18 @@ const startServer = async () => {
       logger.warn('⚠️  Continuing without blockchain (features limited to database only)');
     }
 
+    // ✅ NEW: Start blockchain sync retry service
+    if (blockchainConnected) {
+      try {
+        logger.info('🔄 Starting blockchain sync retry service...');
+        const { blockchainSyncRetryService } = await import('./services/BlockchainSyncRetryService');
+        blockchainSyncRetryService.start();
+        logger.info('✅ Blockchain sync retry service started');
+      } catch (error: any) {
+        logger.warn(`⚠️  Failed to start retry service: ${error.message}`);
+      }
+    }
+
     // Start HTTP server
     server = app.listen(PORT, () => {
       console.log(`
@@ -223,6 +239,7 @@ const startServer = async () => {
 ║   Database:    ${dbConnected ? '✅ Connected' : '⚠️  Offline'}                        ║
 ║   Cache:       ${process.env.REDIS_HOST ? '✅ Ready' : '⚠️  Offline'}                           ║
 ║   Blockchain:  ${blockchainConnected ? '✅ Connected' : '⚠️  Offline'}                        ║
+║   Auto-Retry:  ${blockchainConnected ? '✅ Active' : '⚠️  Disabled'}                          ║
 ║                                                                ║
 ║   Ready for:   ✅ Farmers  ✅ Labs  ✅ Processors               ║
 ║                ✅ Manufacturers  ✅ Consumers  ✅ Admins        ║
@@ -232,9 +249,21 @@ const startServer = async () => {
     });
 
     // Graceful shutdown
-    const shutdown = () => {
+    const shutdown = async () => {
       if (server) {
         console.log('Shutdown signal received: closing HTTP server');
+        
+        // Stop retry service
+        if (blockchainConnected) {
+          try {
+            const { blockchainSyncRetryService } = await import('./services/BlockchainSyncRetryService');
+            blockchainSyncRetryService.stop();
+            logger.info('✅ Blockchain sync retry service stopped');
+          } catch (error: any) {
+            logger.warn('Failed to stop retry service:', error.message);
+          }
+        }
+        
         server.close(() => {
           console.log('HTTP server closed');
           process.exit(0);

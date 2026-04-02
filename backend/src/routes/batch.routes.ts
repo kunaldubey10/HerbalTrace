@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import Database from 'better-sqlite3';
 import { authenticate } from '../middleware/auth';
 import BatchService from '../services/BatchService';
+import { fabricService } from '../services/FabricService';
 import { logger } from '../utils/logger';
 import { db } from '../config/database';
 
@@ -72,10 +73,66 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     logger.info(`Batch created: ${batch.batch_number} by ${req.user!.username}`);
 
+    // ✅ NEW: Sync batch to blockchain
+    let blockchainTxId: string | null = null;
+    let blockchainError: string | null = null;
+    
+    try {
+      // Get collection IDs as strings for blockchain
+      const collectionEventIds = collectionIds.map(id => {
+        const col = db.prepare('SELECT id FROM collection_events_cache WHERE id = ?').get(id);
+        return col ? (col as any).id : `COL-${id}`;
+      });
+
+      const batchPayload = {
+        id: `BATCH-${batch.id}`,
+        batchNumber: batch.batch_number,
+        species: batch.species,
+        totalQuantity: batch.total_quantity,
+        unit: batch.unit,
+        collectionEventIds: collectionEventIds,
+        createdBy: req.user!.username,
+        createdByName: req.user!.fullName,
+        assignedTo: assignedTo || '',
+        assignedToName: batch.assigned_to_name || '',
+        notes: notes || ''
+      };
+
+      const batchResult = await fabricService.createBatch(batchPayload);
+      blockchainTxId = batchResult.txId;
+
+      // Update batch with blockchain transaction ID
+      db.prepare(`
+        UPDATE batches
+        SET blockchain_tx_id = ?
+        WHERE id = ?
+      `).run(blockchainTxId, batch.id);
+
+      logger.info(`✅ Batch ${batch.batch_number} synced to blockchain (TxID: ${blockchainTxId})`);
+    } catch (error: any) {
+      blockchainError = error.message;
+      logger.error(`Blockchain sync failed for batch ${batch.batch_number}:`, error);
+      
+      // Mark batch for retry
+      db.prepare(`
+        UPDATE batches
+        SET notes = ?
+        WHERE id = ?
+      `).run(`${notes || ''}\n[Blockchain sync pending - Error: ${error.message}]`, batch.id);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Batch created successfully',
-      data: batch,
+      data: {
+        ...batch,
+        blockchain_tx_id: blockchainTxId
+      },
+      blockchainSync: {
+        status: blockchainTxId ? 'synced' : 'failed',
+        transactionId: blockchainTxId,
+        error: blockchainError
+      }
     });
   } catch (error: any) {
     logger.error('Create batch error:', error);
@@ -90,7 +147,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
  * GET /api/v1/batches
  * List batches with filters
  * 
- * Access: Admin (all batches), Processor (assigned batches only), Lab (all batches for testing)
+ * Access: Admin (all batches), Processor (assigned batches only), Lab (all batches for testing), Farmer (batches from their collections)
  * 
  * Query params:
  * - species?: string
@@ -106,6 +163,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     // Authorization: Processors can only see their assigned batches
     // Lab users can see all batches (they need to test them)
+    // Farmers can see batches created from their collections
     let filters: any = {
       species: species as string,
       status: status as string,
@@ -118,6 +176,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (req.user?.role === 'Processor') {
       // Override assignedTo to only show this processor's batches
       filters.assignedTo = req.user.username;
+    } else if (req.user?.role === 'Farmer') {
+      // Farmers can only see batches they created (auto-created from their collections)
+      filters.createdBy = req.user.username;
     }
 
     const result = BatchService.listBatches(db, filters);
@@ -446,6 +507,69 @@ router.get('/processor/:username', authenticate, async (req: AuthRequest, res: R
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to get processor batches',
+    });
+  }
+});
+
+/**
+ * POST /api/v1/batches/:id/retry-blockchain-sync
+ * Manually retry blockchain synchronization for a batch
+ * 
+ * Access: Admin only
+ * 
+ * This endpoint allows admins to manually trigger blockchain sync for batches
+ * that failed initial synchronization
+ */
+router.post('/:id/retry-blockchain-sync', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    // Authorization: Admin only
+    if (req.user?.role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only administrators can retry blockchain sync',
+      });
+    }
+
+    const batchId = parseInt(req.params.id);
+
+    if (isNaN(batchId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid batch ID',
+      });
+    }
+
+    // Import retry service
+    const { blockchainSyncRetryService } = await import('../services/BlockchainSyncRetryService');
+    
+    // Trigger manual retry
+    const result = await blockchainSyncRetryService.retryBatchSync(batchId);
+
+    if (result.success) {
+      logger.info(`✅ Manual blockchain sync successful for batch ${batchId}: ${result.txId}`);
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        data: {
+          batchId: batchId,
+          transactionId: result.txId,
+          syncedAt: new Date().toISOString()
+        }
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+        data: {
+          batchId: batchId
+        }
+      });
+    }
+  } catch (error: any) {
+    logger.error('Retry blockchain sync error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retry blockchain sync',
     });
   }
 });

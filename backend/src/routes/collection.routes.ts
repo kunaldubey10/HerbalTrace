@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getFabricClient } from '../fabric/fabricClient';
+import { fabricService } from '../services/FabricService';
 import { authenticate } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
@@ -284,7 +285,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
           db,
           {
             species: normalizedSpecies,
-            collectionIds: [collectionId as unknown as number],
+            collectionIds: [collectionId],
             notes: 'Auto-created from farmer collection event'
           },
           user.username || farmerId,
@@ -293,18 +294,22 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
 
         let batchBlockchainTxId: string | null = null;
         try {
+          // ✅ FIXED: Use proper batch.id (numeric) and correct payload structure
           const batchPayload = {
-            id: batch.batch_number,
+            id: `BATCH-${batch.id}`, // Use numeric ID with prefix for blockchain
+            batchNumber: batch.batch_number,
             species: batch.species,
             totalQuantity: batch.total_quantity,
             unit: batch.unit,
-            collectionEventIds: [collectionId],
+            collectionEventIds: [collectionId], // Array of strings (collection IDs)
             createdBy: farmerId,
-            timestamp: new Date().toISOString()
+            createdByName: farmerName,
+            notes: 'Auto-created from farmer collection event'
           };
 
-          const batchResult = await fabricClient.submitTransaction('CreateBatch', JSON.stringify(batchPayload));
-          batchBlockchainTxId = batchResult?.transactionId || null;
+          // ✅ Use new FabricService createBatch method
+          const batchResult = await fabricService.createBatch(batchPayload);
+          batchBlockchainTxId = batchResult.txId;
 
           if (batchBlockchainTxId) {
             db.prepare(`
@@ -312,9 +317,17 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
               SET blockchain_tx_id = ?
               WHERE id = ?
             `).run(batchBlockchainTxId, batch.id);
+            
+            logger.info(`✅ Batch ${batch.batch_number} synced to blockchain (TxID: ${batchBlockchainTxId})`);
           }
         } catch (batchChainError: any) {
-          logger.warn(`Auto batch blockchain sync failed for ${batch.batch_number}:`, batchChainError.message);
+          logger.error(`Auto batch blockchain sync failed for ${batch.batch_number}:`, batchChainError);
+          // Mark batch for retry
+          db.prepare(`
+            UPDATE batches
+            SET notes = ?
+            WHERE id = ?
+          `).run(`Blockchain sync pending - Error: ${batchChainError.message}`, batch.id);
         }
 
         autoBatch = {

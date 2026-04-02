@@ -20,23 +20,35 @@ export async function enrollUserWithAdminCert(
     const orgMap: { [key: string]: { mspId: string; domain: string } } = {
       'farmers': {
         mspId: 'FarmersCoopMSP',
-        domain: 'farmerscoop.herbaltrace.com'
+        domain: 'farmers.herbaltrace.com'
       },
       'farmerscoop': {
         mspId: 'FarmersCoopMSP',
-        domain: 'farmerscoop.herbaltrace.com'
+        domain: 'farmers.herbaltrace.com'
       },
       'testinglabs': {
         mspId: 'TestingLabsMSP',
-        domain: 'testinglabs.herbaltrace.com'
+        domain: 'labs.herbaltrace.com'
       },
       'labs': {
         mspId: 'TestingLabsMSP',
-        domain: 'testinglabs.herbaltrace.com'
+        domain: 'labs.herbaltrace.com'
+      },
+      'lab': {
+        mspId: 'TestingLabsMSP',
+        domain: 'labs.herbaltrace.com'
+      },
+      'processor': {
+        mspId: 'ProcessorsMSP',
+        domain: 'processors.herbaltrace.com'
       },
       'processors': {
         mspId: 'ProcessorsMSP',
         domain: 'processors.herbaltrace.com'
+      },
+      'manufacturer': {
+        mspId: 'ManufacturersMSP',
+        domain: 'manufacturers.herbaltrace.com'
       },
       'manufacturers': {
         mspId: 'ManufacturersMSP',
