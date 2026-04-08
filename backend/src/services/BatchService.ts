@@ -346,44 +346,78 @@ class BatchService {
       limit?: number;
       offset?: number;
     }
-  ): { batches: Batch[]; total: number } {
+  ): { batches: any[]; total: number } {
     const { species, status, assignedTo, createdBy, limit = 50, offset = 0 } = filters;
 
-    let query = 'SELECT * FROM batches WHERE 1=1';
+    let query = `
+      SELECT DISTINCT
+        b.*,
+        GROUP_CONCAT(c.latitude, ',') as location_latitudes,
+        GROUP_CONCAT(c.longitude, ',') as location_longitudes,
+        GROUP_CONCAT(c.farmer_name, ';') as location_farmer_names,
+        GROUP_CONCAT(c.harvest_date, ';') as location_harvest_dates
+      FROM batches b
+      LEFT JOIN batch_collections bc ON b.id = bc.batch_id
+      LEFT JOIN collection_events_cache c ON bc.collection_id = c.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
 
     if (species) {
-      query += ' AND species = ?';
+      query += ' AND b.species = ?';
       params.push(species);
     }
 
     if (status) {
-      query += ' AND status = ?';
+      query += ' AND b.status = ?';
       params.push(status);
     }
 
     if (assignedTo) {
-      query += ' AND assigned_to = ?';
+      query += ' AND b.assigned_to = ?';
       params.push(assignedTo);
     }
 
     if (createdBy) {
-      query += ' AND created_by = ?';
+      query += ' AND b.created_by = ?';
       params.push(createdBy);
     }
 
     // Get total count
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+    const countQuery = `
+      SELECT COUNT(DISTINCT b.id) as count FROM batches b
+      LEFT JOIN batch_collections bc ON b.id = bc.batch_id
+      LEFT JOIN collection_events_cache c ON bc.collection_id = c.id
+      WHERE 1=1
+    ` + (species ? ' AND b.species = ?' : '') + 
+        (status ? ' AND b.status = ?' : '') +
+        (assignedTo ? ' AND b.assigned_to = ?' : '') +
+        (createdBy ? ' AND b.created_by = ?' : '');
     const countResult = db.prepare(countQuery).get(...params) as { count: number };
     const total = countResult.count;
 
     // Get paginated results
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    query += ' GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const batches = db.prepare(query).all(...params) as Batch[];
+    const batches = db.prepare(query).all(...params) as any[];
 
-    return { batches, total };
+    // Parse location data
+    const parsedBatches = batches.map(batch => ({
+      ...batch,
+      locations: batch.location_latitudes ? batch.location_latitudes.split(',').map((lat: string, idx: number) => ({
+        latitude: parseFloat(lat),
+        longitude: parseFloat(batch.location_longitudes.split(',')[idx]),
+        farmer_name: batch.location_farmer_names?.split(';')[idx] || 'Unknown',
+        harvest_date: batch.location_harvest_dates?.split(';')[idx] || 'Unknown'
+      })) : [],
+      location_latitudes: undefined,
+      location_longitudes: undefined,
+      location_farmer_names: undefined,
+      location_harvest_dates: undefined
+    }));
+
+    return { batches: parsedBatches, total };
   }
 
   /**

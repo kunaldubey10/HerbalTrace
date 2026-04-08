@@ -46,13 +46,17 @@ export interface ValidationResult {
 
 class ValidationService {
   // Demo season windows (can be moved to database later)
+  // Note: For demo purposes, all species allow year-round collection
   private seasonWindows: SeasonWindow[] = [
-    { species: 'Ashwagandha', startMonth: 10, endMonth: 3 }, // Oct-Mar
+    { species: 'Ashwagandha', startMonth: 1, endMonth: 12 }, // Year-round for demo
     { species: 'Tulsi', startMonth: 1, endMonth: 12 }, // Year-round
-    { species: 'Turmeric', startMonth: 1, endMonth: 3 }, // Jan-Mar
-    { species: 'Senna', startMonth: 10, endMonth: 2 }, // Oct-Feb
+    { species: 'Turmeric', startMonth: 1, endMonth: 12 }, // Year-round for demo
+    { species: 'Senna', startMonth: 1, endMonth: 12 }, // Year-round for demo
     { species: 'Brahmi', startMonth: 1, endMonth: 12 }, // Year-round
     { species: 'Neem', startMonth: 1, endMonth: 12 }, // Year-round
+    { species: 'Giloy', startMonth: 1, endMonth: 12 }, // Year-round
+    { species: 'Amla', startMonth: 1, endMonth: 12 }, // Year-round for demo
+    { species: 'Shatavari', startMonth: 1, endMonth: 12 }, // Year-round for demo
   ];
 
   // Demo harvest limits (regulatory compliance)

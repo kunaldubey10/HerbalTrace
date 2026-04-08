@@ -288,11 +288,26 @@ router.get('/products', authenticate, authorize('Admin', 'Manufacturer'), async 
       ORDER BY created_at DESC
     `).all() as any[];
 
-    // Parse JSON fields for each product
+    // Parse JSON fields and convert snake_case to camelCase for each product
     const parsedProducts = products.map(product => ({
-      ...product,
+      id: product.id,
+      productName: product.product_name,
+      productType: product.product_type,
+      batchId: product.batch_id,
+      manufacturerId: product.manufacturer_id,
+      manufacturerName: product.manufacturer_name,
+      quantity: product.quantity,
+      unit: product.unit,
+      manufactureDate: product.manufacture_date,
+      expiryDate: product.expiry_date,
+      qrCode: product.qr_code,
+      qrCodeImage: product.qr_code_image,
       ingredients: JSON.parse(product.ingredients || '[]'),
       certifications: JSON.parse(product.certifications || '[]'),
+      blockchainTxId: product.blockchain_tx_id,
+      status: product.status,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
     }));
 
     res.json({
@@ -325,13 +340,31 @@ router.get('/products/:id', authenticate, authorize('Admin', 'Manufacturer'), as
       });
     }
 
-    // Parse JSON fields
-    product.ingredients = JSON.parse(product.ingredients || '[]');
-    product.certifications = JSON.parse(product.certifications || '[]');
+    // Parse JSON fields and convert snake_case to camelCase
+    const formattedProduct = {
+      id: product.id,
+      productName: product.product_name,
+      productType: product.product_type,
+      batchId: product.batch_id,
+      manufacturerId: product.manufacturer_id,
+      manufacturerName: product.manufacturer_name,
+      quantity: product.quantity,
+      unit: product.unit,
+      manufactureDate: product.manufacture_date,
+      expiryDate: product.expiry_date,
+      qrCode: product.qr_code,
+      qrCodeImage: product.qr_code_image,
+      ingredients: JSON.parse(product.ingredients || '[]'),
+      certifications: JSON.parse(product.certifications || '[]'),
+      blockchainTxId: product.blockchain_tx_id,
+      status: product.status,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+    };
 
     res.json({
       success: true,
-      data: product,
+      data: formattedProduct,
     });
   } catch (error: any) {
     logger.error('Get product error:', error);

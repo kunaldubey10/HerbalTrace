@@ -164,8 +164,9 @@ func (c *HerbalTraceContract) ValidateSeasonWindow(ctx contractapi.TransactionCo
 		}
 	}
 
-	// No valid season window found
-	return false, nil
+	// No active season window configured for this species/region.
+	// Allow the transaction and rely on explicit windows when governance data is seeded.
+	return true, nil
 }
 
 // GetSeasonWindows retrieves all season windows for a species

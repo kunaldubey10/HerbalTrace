@@ -514,6 +514,7 @@ const LaboratoryLandingPage = () => {
           <QCTestCreationModal 
             batches={pendingBatches} 
             selectedBatch={selectedBatchForTest}
+            userData={userData}
             onClose={() => {
               setShowTestModal(false)
               setSelectedBatchForTest(null)
@@ -1324,7 +1325,7 @@ const ComplaintModal = ({ onClose, categories }) => {
 }
 
 // QC Test Creation Modal - Connected to API
-const QCTestCreationModal = ({ batches, selectedBatch, onClose, onSuccess, testTypesEnum }) => {
+const QCTestCreationModal = ({ batches, selectedBatch, userData, onClose, onSuccess, testTypesEnum }) => {
   const [formData, setFormData] = useState({
     batchId: selectedBatch?.batchId || selectedBatch?.id || '',
     testType: 'IDENTITY',
@@ -1367,13 +1368,20 @@ const QCTestCreationModal = ({ batches, selectedBatch, onClose, onSuccess, testT
     try {
       const selectedBatch = batches.find(b => String(b.batchId || b.id) === formData.batchId)
       
+      if (!userData?.userId) {
+        setError('Lab ID not found. Please sign in again.')
+        setIsSubmitting(false)
+        return
+      }
+      
       const payload = {
         batch_id: selectedBatch?.id || formData.batchId,
+        lab_id: userData.userId,
+        lab_name: userData.orgName || 'Testing Lab',
         test_type: formData.testType,
         species: selectedBatch?.herb || formData.species,
         priority: formData.priority,
-        notes: formData.notes,
-        lab_name: 'HerbalTrace Lab'
+        notes: formData.notes
       }
 
       const response = await fetch(`${BACKEND_URL}/api/v1/qc/tests`, {

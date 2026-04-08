@@ -34,7 +34,8 @@ import {
   MessageCircle,
   Send,
   RefreshCw,
-  Beaker
+  Beaker,
+  Info
 } from 'lucide-react'
 import DashboardNavbar from '../common/DashboardNavbar'
 import { useEnums } from '../../hooks/useEnums'
@@ -364,7 +365,10 @@ const ManufacturerLandingPage = () => {
               transition={{ duration: 0.3 }}
               className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100"
             >
-              <QRCodeGeneration />
+              <QRCodeGeneration 
+                products={products}
+                onCreateProduct={() => setShowCreateProductModal(true)}
+              />
             </motion.div>
           )}
 
@@ -704,220 +708,94 @@ const InventoryTracking = ({ inventory }) => (
   </div>
 )
 
-// QR Code Generation Component
-const QRCodeGeneration = () => {
-  const [formData, setFormData] = useState({
-    lotId: '',
-    productName: '',
-    sourceBatchIds: '',
-    manufacturingDate: '',
-    expiryDate: '',
-    quantity: ''
-  })
-  const [generatedQR, setGeneratedQR] = useState(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleGenerateQR = () => {
-    if (!formData.lotId || !formData.productName) {
-      alert('Please fill in Lot ID and Product Name')
-      return
-    }
-    
-    setIsGenerating(true)
-    
-    // Simulate QR generation
-    setTimeout(() => {
-      const qrData = {
-        lotId: formData.lotId,
-        productName: formData.productName,
-        sourceBatches: formData.sourceBatchIds.split(',').map(s => s.trim()),
-        manufacturingDate: formData.manufacturingDate,
-        expiryDate: formData.expiryDate,
-        quantity: formData.quantity,
-        generatedAt: new Date().toISOString(),
-        verificationUrl: `https://herbaltrace.com/verify/${formData.lotId}`
-      }
-      setGeneratedQR(qrData)
-      setIsGenerating(false)
-    }, 1500)
-  }
-
-  const handleDownloadQR = () => {
-    // In a real app, this would download the actual QR code image
-    alert('QR Code downloaded successfully!')
-  }
-
+// QR Code Generation Component - Shows existing products with QR codes
+const QRCodeGeneration = ({ products, onCreateProduct }) => {
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Generate Product QR Codes</h2>
-      <div className="grid lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Final Product Lot ID *</label>
-            <input
-              type="text"
-              name="lotId"
-              value={formData.lotId}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="HT-LOT-2025-001"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-            <input
-              type="text"
-              name="productName"
-              value={formData.productName}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="Premium Ashwagandha Powder"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Source Batch IDs</label>
-            <textarea
-              name="sourceBatchIds"
-              value={formData.sourceBatchIds}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              rows="2"
-              placeholder="HT-BATCH-2025-101, HT-BATCH-2025-102"
-            />
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">Product QR Codes</h2>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onCreateProduct}
+          className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Create New Product</span>
+        </motion.button>
+      </div>
+      
+      {/* Instructions */}
+      <div className="bg-primary-50 border border-primary-100 rounded-xl p-4 mb-6">
+        <h3 className="font-semibold text-primary-800 mb-2 flex items-center">
+          <Info className="h-5 w-5 mr-2" />
+          How to Generate QR Codes
+        </h3>
+        <ol className="text-sm text-primary-700 space-y-1 list-decimal list-inside">
+          <li>Click "Create New Product" button above</li>
+          <li>Select a lab-approved batch from the dropdown</li>
+          <li>Enter product name and details</li>
+          <li>QR code is automatically generated and saved to blockchain</li>
+          <li>Download QR code image to print on packaging</li>
+        </ol>
+      </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Manufacturing Date</label>
-              <input
-                type="date"
-                name="manufacturingDate"
-                value={formData.manufacturingDate}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
+      {/* Products with QR codes */}
+      {products && products.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {products.map((product) => (
+            <div key={product.id || product.productId} className="border border-gray-200 rounded-xl p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold text-gray-900">{product.productName || product.name}</h3>
+                  <p className="text-sm text-gray-500">{product.productId}</p>
+                </div>
+                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                  {product.status || 'Active'}
+                </span>
+              </div>
+              
+              {product.qrCodeImage ? (
+                <div className="text-center">
+                  <img 
+                    src={product.qrCodeImage} 
+                    alt={`QR Code for ${product.productName}`}
+                    className="w-32 h-32 mx-auto mb-2"
+                  />
+                  <p className="text-xs text-gray-500 mb-2">{product.qrCode}</p>
+                  <a
+                    href={product.qrCodeImage}
+                    download={`QR-${product.qrCode}.png`}
+                    className="text-sm text-primary-600 hover:text-primary-700 flex items-center justify-center"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Download QR
+                  </a>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <QrCode className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-400">QR not available</p>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
-              <input
-                type="date"
-                name="expiryDate"
-                value={formData.expiryDate}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-            <input
-              type="text"
-              name="quantity"
-              value={formData.quantity}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="500 units"
-            />
-          </div>
-          
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <QrCode className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-700 mb-2">No Products Yet</h3>
+          <p className="text-gray-500 mb-4">Create your first product to generate a QR code</p>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleGenerateQR}
-            disabled={isGenerating}
-            className="w-full bg-primary-600 text-white py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            onClick={onCreateProduct}
+            className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
           >
-            {isGenerating ? (
-              <>
-                <RotateCw className="h-5 w-5 animate-spin" />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <QrCode className="h-5 w-5" />
-                <span>Generate QR Code</span>
-              </>
-            )}
+            Create Product
           </motion.button>
         </div>
-        
-        <div className="bg-gray-50 rounded-xl p-8">
-          {generatedQR ? (
-            <div className="text-center">
-              {/* Simulated QR Code Display */}
-              <div className="w-48 h-48 mx-auto mb-6 bg-white p-4 rounded-xl shadow-lg">
-                <div className="w-full h-full border-4 border-gray-900 rounded-lg relative">
-                  <div className="absolute inset-2 grid grid-cols-8 gap-0.5">
-                    {[...Array(64)].map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`${Math.random() > 0.5 ? 'bg-gray-900' : 'bg-white'}`}
-                      />
-                    ))}
-                  </div>
-                  {/* Corner markers */}
-                  <div className="absolute top-1 left-1 w-6 h-6 border-4 border-gray-900 bg-white">
-                    <div className="absolute inset-1 bg-gray-900" />
-                  </div>
-                  <div className="absolute top-1 right-1 w-6 h-6 border-4 border-gray-900 bg-white">
-                    <div className="absolute inset-1 bg-gray-900" />
-                  </div>
-                  <div className="absolute bottom-1 left-1 w-6 h-6 border-4 border-gray-900 bg-white">
-                    <div className="absolute inset-1 bg-gray-900" />
-                  </div>
-                </div>
-              </div>
-              
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{generatedQR.productName}</h3>
-              <p className="text-sm text-gray-600 mb-4">Lot: {generatedQR.lotId}</p>
-              
-              <div className="text-left bg-white p-4 rounded-lg mb-4 text-sm">
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-gray-500">Manufacturing:</span>
-                  <span className="font-medium">{generatedQR.manufacturingDate || 'N/A'}</span>
-                  <span className="text-gray-500">Expiry:</span>
-                  <span className="font-medium">{generatedQR.expiryDate || 'N/A'}</span>
-                  <span className="text-gray-500">Quantity:</span>
-                  <span className="font-medium">{generatedQR.quantity || 'N/A'}</span>
-                </div>
-              </div>
-              
-              <div className="flex space-x-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleDownloadQR}
-                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Download</span>
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setGeneratedQR(null)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Reset
-                </motion.button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <QrCode className="h-32 w-32 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Fill in the details and click Generate to create a QR code</p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -1916,7 +1794,7 @@ const CreateProductModal = ({ batches, onClose, onSuccess }) => {
       onClick={onClose}
     >
       <motion.div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden my-8"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -1932,7 +1810,7 @@ const CreateProductModal = ({ batches, onClose, onSuccess }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-visible">
           {error && (
             <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm">
               {error}

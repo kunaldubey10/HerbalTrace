@@ -193,11 +193,14 @@ export class QCService {
     const testNumber = `QC-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
     const sampleId = `SMPL-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-    // Verify batch exists
-    const batch = db.prepare('SELECT id, species FROM batches WHERE id = ?').get(testData.batch_id);
+    // Verify batch exists - lookup by id (integer) OR batch_number (string)
+    const batch = db.prepare('SELECT id, batch_number, species FROM batches WHERE id = ? OR batch_number = ?').get(testData.batch_id, testData.batch_id) as any;
     if (!batch) {
       throw new Error('Batch not found');
     }
+    
+    // Use the actual numeric batch ID for foreign key
+    const actualBatchId = batch.id;
 
     // Get template data if provided
     let templateData: QCTestTemplate | null = null;
@@ -217,7 +220,7 @@ export class QCService {
     stmt.run(
       id,
       testNumber,
-      testData.batch_id,
+      actualBatchId,  // Use actual numeric batch ID
       testData.template_id,
       testData.lab_id,
       testData.lab_name,

@@ -207,7 +207,7 @@ export class BlockchainSyncRetryService {
           longitude: collection.longitude,
           altitude: collection.altitude || 0,
           accuracy: collectionData.accuracy || 0,
-          harvestDate: collection.harvest_date,
+          harvestDate: new Date(collection.harvest_date + 'T00:00:00Z').toISOString(),
           timestamp: collection.created_at,
           harvestMethod: collectionData.harvestMethod || 'manual',
           partCollected: collectionData.partCollected || 'unknown',

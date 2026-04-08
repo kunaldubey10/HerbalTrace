@@ -11,6 +11,7 @@ import {
   WifiOff,
   MessageSquare,
   AlertTriangle,
+  AlertCircle,
   CheckCircle,
   Clock,
   Navigation,
@@ -47,6 +48,8 @@ const FarmerLandingPage = () => {
   const [activeTab, setActiveTab] = useState('overview')
   const [isOnline, setIsOnline] = useState(true)
   const [currentLocation, setCurrentLocation] = useState(null)
+  const [locationLoading, setLocationLoading] = useState(false)
+  const [locationError, setLocationError] = useState('')
   const [newCollectionEvent, setNewCollectionEvent] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [showHandoverModal, setShowHandoverModal] = useState(false)
@@ -146,18 +149,58 @@ const FarmerLandingPage = () => {
     fetchAlerts()
   }, [])
 
-  // GPS location capture
+  // GPS location capture - Fetch on mount
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        setCurrentLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        })
-      })
-    }
+    fetchGPSLocation()
   }, [])
+
+  // Re-fetch GPS when collection modal opens
+  useEffect(() => {
+    if (showNewCollectionModal) {
+      fetchGPSLocation()
+    }
+  }, [showNewCollectionModal])
+
+  // Function to fetch real-time GPS location
+  const fetchGPSLocation = () => {
+    setLocationLoading(true)
+    setLocationError('')
+
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser')
+      setLocationLoading(false)
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentLocation({
+          lat: parseFloat(position.coords.latitude.toFixed(6)),
+          lng: parseFloat(position.coords.longitude.toFixed(6)),
+          accuracy: parseFloat(position.coords.accuracy.toFixed(2))
+        })
+        setLocationError('')
+        setLocationLoading(false)
+      },
+      (error) => {
+        let errorMsg = 'Unable to fetch location'
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = 'Location permission denied. Please enable location services.'
+        } else if (error.code === error.TIMEOUT) {
+          errorMsg = 'Location request timed out. Please check your GPS.'
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMsg = 'Location information is unavailable.'
+        }
+        setLocationError(errorMsg)
+        setLocationLoading(false)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    )
+  }
 
   // Calculate stats from real data
   const today = new Date().toISOString().split('T')[0]
@@ -482,7 +525,10 @@ const FarmerLandingPage = () => {
       <AnimatePresence>
         {showNewCollectionModal && (
           <NewCollectionFormModal 
-            location={currentLocation} 
+            location={currentLocation}
+            locationLoading={locationLoading}
+            locationError={locationError}
+            onRefreshLocation={fetchGPSLocation}
             onClose={() => setShowNewCollectionModal(false)}
             onSuccess={() => {
               setShowNewCollectionModal(false)
@@ -904,19 +950,19 @@ const SustainabilityScore = () => (
 )
 
 // Modal Components
-const NewCollectionModal = ({ location, onClose }) => {
+const NewCollectionModal = ({ location, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     herbalSpecies: '',
     commonName: '',
     scientificName: '',
     quantity: '',
-    unit: 'Kilograms (kg)',
-    harvestDate: '',
+    unit: 'kg',
+    harvestDate: new Date().toISOString().split('T')[0],
     harvestTime: '',
     harvestMethod: 'Manual Harvesting',
     partCollected: 'Whole Plant',
-    latitude: '',
-    longitude: '',
+    latitude: location?.latitude?.toString() || '',
+    longitude: location?.longitude?.toString() || '',
     altitude: '',
     gpsAccuracy: '',
     locationName: '',
@@ -928,6 +974,8 @@ const NewCollectionModal = ({ location, onClose }) => {
   })
   const [images, setImages] = useState([])
   const [isCapturingLocation, setIsCapturingLocation] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const herbalSpeciesOptions = [
     'Ashwagandha (Withania somnifera)',
@@ -942,14 +990,15 @@ const NewCollectionModal = ({ location, onClose }) => {
     'Shatavari (Asparagus racemosus)'
   ]
 
-  const unitOptions = ['Kilograms (kg)', 'Grams (g)', 'Pounds (lb)', 'Ounces (oz)']
-  const harvestMethodOptions = ['Manual Harvesting', 'Mechanical Harvesting', 'Semi-Mechanical', 'Selective Harvesting']
-  const partCollectedOptions = ['Whole Plant', 'Leaves', 'Roots', 'Flowers', 'Seeds', 'Bark', 'Fruits', 'Rhizome']
+  const unitOptions = ['kg', 'g', 'lb', 'oz']
+  const harvestMethodOptions = ['manual', 'mechanical', 'semi-mechanical', 'selective']
+  const partCollectedOptions = ['whole_plant', 'leaves', 'roots', 'flowers', 'seeds', 'bark', 'fruits', 'rhizome']
   const weatherOptions = ['Sunny', 'Cloudy', 'Partly Cloudy', 'Rainy', 'Drizzle', 'Windy', 'Humid']
   const soilTypeOptions = ['Loamy', 'Clay', 'Sandy', 'Silt', 'Peaty', 'Chalky', 'Red Soil', 'Black Soil', 'Alluvial']
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    setSubmitError('')
   }
 
   const captureCurrentLocation = () => {
@@ -989,6 +1038,73 @@ const NewCollectionModal = ({ location, onClose }) => {
 
   const removeImage = (index) => {
     setImages(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Submit collection to backend
+  const handleSubmit = async () => {
+    // Validate required fields
+    if (!formData.herbalSpecies || !formData.quantity || !formData.latitude || !formData.longitude || !formData.harvestDate) {
+      setSubmitError('Please fill required fields: Species, Quantity, Location (GPS), Harvest Date')
+      return
+    }
+
+    const token = localStorage.getItem('herbaltrace_token')
+    if (!token) {
+      setSubmitError('Please sign in first')
+      return
+    }
+
+    setIsSubmitting(true)
+    setSubmitError('')
+
+    try {
+      // Parse species name (format: "Common Name (Scientific Name)")
+      const speciesMatch = formData.herbalSpecies.match(/^(.+?)\s*\((.+?)\)$/)
+      const commonName = speciesMatch ? speciesMatch[1].trim() : formData.herbalSpecies
+      const scientificName = speciesMatch ? speciesMatch[2].trim() : (formData.scientificName || '')
+
+      const payload = {
+        species: commonName,
+        commonName: formData.commonName || commonName,
+        scientificName: formData.scientificName || scientificName,
+        quantity: parseFloat(formData.quantity),
+        unit: formData.unit,
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude),
+        altitude: formData.altitude ? parseFloat(formData.altitude) : undefined,
+        accuracy: formData.gpsAccuracy ? parseFloat(formData.gpsAccuracy) : undefined,
+        harvestDate: formData.harvestDate,
+        harvestMethod: formData.harvestMethod,
+        partCollected: formData.partCollected,
+        weatherConditions: formData.weatherConditions || undefined,
+        soilType: formData.soilType || undefined,
+        images: [] // Would need image upload handling
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/collections`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to create collection')
+      }
+
+      // Success - call onSuccess callback and close modal
+      if (onSuccess) onSuccess(result.data)
+      onClose()
+    } catch (error) {
+      console.error('Collection submit error:', error)
+      setSubmitError(error.message || 'Failed to submit collection')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -1315,6 +1431,14 @@ const NewCollectionModal = ({ location, onClose }) => {
                 placeholder="Any additional information about the harvest..."
               />
             </div>
+
+            {/* Error Message */}
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
+                <AlertTriangle className="h-5 w-5 mr-2" />
+                <span>{submitError}</span>
+              </div>
+            )}
           </div>
         </div>
         
@@ -1322,17 +1446,29 @@ const NewCollectionModal = ({ location, onClose }) => {
         <div className="flex space-x-3 p-6 pt-0">
           <button 
             onClick={onClose} 
-            className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+            disabled={isSubmitting}
+            className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <motion.button 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <CheckCircle className="h-5 w-5" />
-            <span>Record Collection</span>
+            {isSubmitting ? (
+              <>
+                <RefreshCw className="h-5 w-5 animate-spin" />
+                <span>Submitting...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-5 w-5" />
+                <span>Record Collection</span>
+              </>
+            )}
           </motion.button>
         </div>
       </motion.div>
@@ -1659,7 +1795,7 @@ const ComplaintModal = ({ onClose }) => {
 }
 
 // New Collection Form Modal - Connected to API
-const NewCollectionFormModal = ({ location, onClose, onSuccess }) => {
+const NewCollectionFormModal = ({ location, locationLoading, locationError, onRefreshLocation, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     species: '',
     commonName: '',
@@ -1876,16 +2012,60 @@ const NewCollectionFormModal = ({ location, onClose, onSuccess }) => {
           </div>
 
           <div className="bg-gray-50 p-3 rounded-lg text-sm">
-            <div className="flex items-center text-gray-600">
-              <MapPin className="h-4 w-4 mr-2" />
-              <span>
-                {location ? (
-                  `GPS: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)} (±${location.accuracy?.toFixed(0) || '?'}m)`
-                ) : (
-                  'Fetching GPS location...'
-                )}
-              </span>
-            </div>
+            {locationError ? (
+              <div className="space-y-2">
+                <div className="flex items-center text-red-600">
+                  <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>{locationError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onRefreshLocation}
+                  disabled={locationLoading}
+                  className="text-blue-600 hover:text-blue-700 font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {locationLoading ? 'Retrying...' : 'Retry Location'}
+                </button>
+              </div>
+            ) : locationLoading ? (
+              <div className="flex items-center text-gray-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mr-2"></div>
+                <span>Fetching GPS location...</span>
+              </div>
+            ) : location ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-gray-600">
+                  <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>
+                    GPS: {location.lat.toFixed(6)}, {location.lng.toFixed(6)} (±{location.accuracy?.toFixed(0) || '?'}m)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onRefreshLocation}
+                  disabled={locationLoading}
+                  className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh GPS location"
+                >
+                  <RefreshCw className="h-4 w-4 text-gray-600" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-gray-600">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  <span>Location data unavailable</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onRefreshLocation}
+                  disabled={locationLoading}
+                  className="text-blue-600 hover:text-blue-700 font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {locationLoading ? 'Fetching...' : 'Fetch Location'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-3 pt-4">
