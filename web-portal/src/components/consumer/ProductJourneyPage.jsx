@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import Botanical3DViewer from './Botanical3DViewer'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
@@ -293,6 +294,12 @@ const ProductJourneyPage = () => {
             </div>
           </div>
         </div>
+
+        {/* 3D Botanical Specimen & AR Monograph with Usage Guide */}
+        <Botanical3DViewer 
+          species={speciesName.includes('Ashwagandha') ? 'Ashwagandha' : 'Tulsi'} 
+          productName={productName} 
+        />
 
         {/* Map & Timeline Grid */}
         <div className="grid lg:grid-cols-12 gap-8">

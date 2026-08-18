@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import DashboardNavbar from '../common/DashboardNavbar'
 import ComplaintModal from '../common/ComplaintModal'
+import OfflineGsmTerminalModal from './OfflineGsmTerminalModal'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
@@ -61,6 +62,7 @@ const FarmerLandingPage = () => {
   const [isLoadingCollections, setIsLoadingCollections] = useState(false)
   const [collectionsError, setCollectionsError] = useState('')
   const [showNewCollectionModal, setShowNewCollectionModal] = useState(false)
+  const [showGsmModal, setShowGsmModal] = useState(false)
   const [userData, setUserData] = useState(null)
   const [batches, setBatches] = useState([])
   const [alerts, setAlerts] = useState([])
@@ -348,18 +350,21 @@ const FarmerLandingPage = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowGsmModal(true)}
+                  className="bg-emerald-800/90 hover:bg-emerald-900 text-white px-4 py-2.5 rounded-xl font-bold flex items-center space-x-2 border border-emerald-400/40 text-xs shadow-md"
+                >
+                  <Radio className="h-4 w-4 text-emerald-300 animate-pulse" />
+                  <span>Offline GSM / USSD (*99#)</span>
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setShowComplaintModal(true)}
                   className="bg-red-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center space-x-2 hover:bg-red-600 transition-colors text-sm md:text-base shadow-md"
                 >
                   <MessageCircle className="h-4 w-4" />
                   <span>Raise Complaint</span>
                 </motion.button>
-                {!isOnline && (
-                  <button className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center space-x-2 hover:bg-blue-600 transition-colors text-sm md:text-base shadow-md">
-                    <MessageSquare className="h-4 w-4" />
-                    <span>SMS Sync</span>
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -536,6 +541,23 @@ const FarmerLandingPage = () => {
           <ComplaintModal 
             role="Farmer"
             onClose={() => setShowComplaintModal(false)} 
+          />
+        )}
+        {showGsmModal && (
+          <OfflineGsmTerminalModal 
+            isOpen={showGsmModal}
+            isDark={theme === 'dark'}
+            onClose={() => setShowGsmModal(false)}
+            onSyncComplete={() => {
+              const token = localStorage.getItem('herbaltrace_token')
+              if (token) {
+                fetch(`${BACKEND_URL}/api/v1/collections?limit=50`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                }).then(res => res.json()).then(result => {
+                  if (result.success) setCollections(result.data || [])
+                })
+              }
+            }}
           />
         )}
       </AnimatePresence>
