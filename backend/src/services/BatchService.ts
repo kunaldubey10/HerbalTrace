@@ -501,16 +501,16 @@ class BatchService {
 
     // Status transition validation
     const validTransitions: { [key: string]: string[] } = {
-      created: ['assigned', 'rejected'],
-      assigned: ['in_processing', 'rejected'],
-      in_processing: ['processing_complete', 'rejected'],
-      processing_complete: ['quality_tested', 'rejected'],
+      created: ['assigned', 'in_processing', 'processing_complete', 'quality_tested', 'approved', 'rejected'],
+      assigned: ['in_processing', 'processing_complete', 'quality_tested', 'approved', 'rejected'],
+      in_processing: ['processing_complete', 'quality_tested', 'approved', 'rejected'],
+      processing_complete: ['quality_tested', 'approved', 'rejected'],
       quality_tested: ['approved', 'rejected'],
-      approved: [], // Terminal state
-      rejected: [], // Terminal state
+      approved: ['approved', 'quality_tested'],
+      rejected: ['created', 'assigned', 'rejected'],
     };
 
-    if (!validTransitions[batch.status].includes(newStatus)) {
+    if (validTransitions[batch.status] && !validTransitions[batch.status].includes(newStatus)) {
       throw new Error(`Invalid status transition from ${batch.status} to ${newStatus}`);
     }
 

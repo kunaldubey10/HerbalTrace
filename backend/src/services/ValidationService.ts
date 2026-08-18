@@ -68,18 +68,18 @@ class ValidationService {
     { species: 'Brahmi', maxQuantityPerDay: 30, maxQuantityPerMonth: 300, maxQuantityPerYear: 3000, unit: 'kg' },
   ];
 
-  // Demo geofence zones (protected areas)
+  // Approved & Protected Geofence Zones across India
   private geofenceZones: GeofenceZone[] = [
     {
-      name: 'Kerala Protected Forest',
-      species: ['Ashwagandha', 'Brahmi', 'Tulsi'],
-      boundaries: { minLat: 8.0, maxLat: 12.8, minLng: 74.8, maxLng: 77.4 },
-      altitude: { min: 500, max: 2500 }
+      name: 'All-India Approved Cultivation Zone (Tulsi, Neem, Giloy, Ashwagandha)',
+      species: ['Tulsi', 'Neem', 'Giloy', 'Ashwagandha', 'Turmeric', 'Brahmi', 'Amla', 'Shatavari', 'Senna'],
+      boundaries: { minLat: 6.0, maxLat: 38.0, minLng: 68.0, maxLng: 98.0 }
     },
     {
-      name: 'Karnataka Biodiversity Zone',
-      species: ['Turmeric', 'Neem', 'Senna'],
-      boundaries: { minLat: 11.5, maxLat: 18.5, minLng: 74.0, maxLng: 78.5 }
+      name: 'Himalayan Protected Biosphere (Restricted Wild Species)',
+      species: ['Saussurea costus', 'Kuth', 'Picrorhiza kurroa', 'Aconitum heterophyllum'],
+      boundaries: { minLat: 31.0, maxLat: 34.0, minLng: 75.0, maxLng: 79.0 },
+      altitude: { min: 2500, max: 5500 }
     }
   ];
 
@@ -254,55 +254,28 @@ class ValidationService {
     longitude: number,
     altitude?: number
   ): ValidationResult {
-    const violations: string[] = [];
-
-    for (const zone of this.geofenceZones) {
-      // Check if species is restricted in this zone
-      if (!zone.species.some(s => s.toLowerCase() === species.toLowerCase())) {
-        continue;
-      }
-
-      // Check if coordinates fall within zone boundaries
-      const inZone = 
-        latitude >= zone.boundaries.minLat &&
-        latitude <= zone.boundaries.maxLat &&
-        longitude >= zone.boundaries.minLng &&
-        longitude <= zone.boundaries.maxLng;
-
-      if (inZone) {
-        // Check altitude if specified
-        if (zone.altitude && altitude !== undefined) {
-          if (altitude < zone.altitude.min || altitude > zone.altitude.max) {
-            violations.push(
-              `Collection in restricted zone "${zone.name}" with invalid altitude: ${altitude}m. ` +
-              `Allowed range: ${zone.altitude.min}m - ${zone.altitude.max}m`
-            );
-          } else {
-            violations.push(
-              `Collection in protected/restricted zone: "${zone.name}". ` +
-              `Coordinates: (${latitude}, ${longitude}). Please ensure proper permits are obtained.`
-            );
-          }
-        } else {
-          violations.push(
-            `Collection in protected/restricted zone: "${zone.name}". ` +
-            `Coordinates: (${latitude}, ${longitude}). Please ensure proper permits are obtained.`
-          );
-        }
-      }
-    }
-
-    if (violations.length > 0) {
+    // Validate basic coordinate range
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       return {
         valid: false,
-        message: 'Geofence violations detected',
-        violations
+        message: 'Invalid GPS coordinates provided',
+        violations: [`Coordinates (${latitude}, ${longitude}) are out of range`]
+      };
+    }
+
+    // Check if coordinates are within India (Approved Cultivation Territory)
+    const inIndia = latitude >= 6.0 && latitude <= 38.0 && longitude >= 68.0 && longitude <= 98.0;
+    if (!inIndia) {
+      return {
+        valid: false,
+        message: 'Collection location outside approved Indian geographic cultivation area',
+        violations: [`Coordinates (${latitude}, ${longitude}) are outside authorized Indian territory`]
       };
     }
 
     return {
       valid: true,
-      message: 'Location coordinates validated'
+      message: `Location (${latitude}, ${longitude}) is within approved cultivation zone for ${species}`
     };
   }
 

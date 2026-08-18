@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ShieldCheck, QrCode, ListChecks, Sprout, Tractor, Scissors, Factory, Truck, Pill, CheckCircle, Download, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShieldCheck, QrCode, ListChecks, Sprout, Tractor, Scissors, Factory, Truck, Pill, CheckCircle, Download, Users, MapPin, Globe, Sparkles, Activity } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import farmerImage from '../assets/1st.png'
 import consumerImage from '../assets/2nd.png'

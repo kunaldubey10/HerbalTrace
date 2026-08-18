@@ -451,6 +451,14 @@ router.put('/:id/status', authenticate, async (req: AuthRequest, res: Response) 
           message: `Processors can only update status to: ${allowedStatuses.join(', ')}`,
         });
       }
+    } else if (req.user?.role === 'Lab') {
+      const allowedStatuses = ['quality_tested', 'approved', 'rejected', 'in_progress'];
+      if (!allowedStatuses.includes(status)) {
+        return res.status(403).json({
+          success: false,
+          message: `Lab can only update status to: ${allowedStatuses.join(', ')}`,
+        });
+      }
     }
 
     const updatedBatch = BatchService.updateBatchStatus(db, batchId, status, req.user!.username);

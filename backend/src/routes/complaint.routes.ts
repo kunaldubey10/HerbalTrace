@@ -57,13 +57,16 @@ try {
  */
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { category, subject, description, priority } = req.body;
+    const { category, subject, title, description, message, priority, audio_duration, voice_duration } = req.body;
     const user = req.user!;
 
-    if (!category || !subject || !description) {
+    const complaintSubject = subject || title || category || 'Stakeholder Grievance';
+    const complaintDescription = description || message;
+
+    if (!complaintDescription) {
       return res.status(400).json({
         success: false,
-        message: 'Category, subject, and description are required'
+        message: 'Complaint message / description is required'
       });
     }
 
@@ -74,23 +77,30 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       complaintId,
-      user.userId,
-      user.fullName,
-      user.role,
-      category,
-      subject,
-      description,
+      user.userId || user.username || 'user',
+      user.fullName || user.username || 'Stakeholder',
+      user.role || 'Stakeholder',
+      category || 'General Inquiry',
+      complaintSubject,
+      complaintDescription,
       priority || 'medium'
     );
 
-    logger.info(`Complaint created: ${complaintId} by ${user.username}`);
+    logger.info(`Complaint created: ${complaintId} by ${user.username || user.userId}`);
 
     res.status(201).json({
       success: true,
-      message: 'Complaint submitted successfully',
+      message: 'Complaint submitted successfully to Admin',
       data: {
         complaintId,
-        status: 'open'
+        id: complaintId,
+        status: 'open',
+        category: category || 'General',
+        subject: complaintSubject,
+        description: complaintDescription,
+        user_name: user.fullName || user.username,
+        user_role: user.role,
+        created_at: new Date().toISOString()
       }
     });
   } catch (error: any) {
@@ -221,8 +231,9 @@ router.put('/:id/status', authenticate, async (req: AuthRequest, res: Response) 
       });
     }
 
+    const normalizedStatus = String(status || '').toLowerCase();
     const validStatuses = ['open', 'in_progress', 'resolved', 'closed', 'rejected'];
-    if (!validStatuses.includes(status)) {
+    if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
         message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
@@ -232,8 +243,8 @@ router.put('/:id/status', authenticate, async (req: AuthRequest, res: Response) 
     const result = db.prepare(`
       UPDATE complaints 
       SET status = ?, assigned_to = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE complaint_id = ?
-    `).run(status, assignedTo || null, id);
+      WHERE complaint_id = ? OR id = ?
+    `).run(normalizedStatus, assignedTo || null, id, id);
 
     if (result.changes === 0) {
       return res.status(404).json({

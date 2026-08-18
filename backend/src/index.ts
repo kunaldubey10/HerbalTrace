@@ -196,32 +196,7 @@ const startServer = async () => {
     // }
     logger.info('Redis caching disabled for hackathon - using in-memory cache');
 
-    // Initialize blockchain connection
-    let blockchainConnected = false;
-    try {
-      logger.info('🔗 Initializing blockchain connection...');
-      const { fabricService } = await import('./services/FabricService');
-      await fabricService.connect();
-      blockchainConnected = true;
-      logger.info('✅ Blockchain connected successfully');
-    } catch (error: any) {
-      logger.warn(`⚠️  Blockchain connection failed: ${error.message}`);
-      logger.warn('⚠️  Continuing without blockchain (features limited to database only)');
-    }
-
-    // ✅ NEW: Start blockchain sync retry service
-    if (blockchainConnected) {
-      try {
-        logger.info('🔄 Starting blockchain sync retry service...');
-        const { blockchainSyncRetryService } = await import('./services/BlockchainSyncRetryService');
-        blockchainSyncRetryService.start();
-        logger.info('✅ Blockchain sync retry service started');
-      } catch (error: any) {
-        logger.warn(`⚠️  Failed to start retry service: ${error.message}`);
-      }
-    }
-
-    // Start HTTP server
+    // Start HTTP server immediately
     server = app.listen(PORT, () => {
       console.log(`
 ╔════════════════════════════════════════════════════════════════╗
@@ -238,8 +213,6 @@ const startServer = async () => {
 ║                                                                ║
 ║   Database:    ${dbConnected ? '✅ Connected' : '⚠️  Offline'}                        ║
 ║   Cache:       ${process.env.REDIS_HOST ? '✅ Ready' : '⚠️  Offline'}                           ║
-║   Blockchain:  ${blockchainConnected ? '✅ Connected' : '⚠️  Offline'}                        ║
-║   Auto-Retry:  ${blockchainConnected ? '✅ Active' : '⚠️  Disabled'}                          ║
 ║                                                                ║
 ║   Ready for:   ✅ Farmers  ✅ Labs  ✅ Processors               ║
 ║                ✅ Manufacturers  ✅ Consumers  ✅ Admins        ║
@@ -247,6 +220,32 @@ const startServer = async () => {
 ╚════════════════════════════════════════════════════════════════╝
       `);
     });
+
+    // Initialize blockchain connection in background
+    let blockchainConnected = false;
+    (async () => {
+      try {
+        logger.info('🔗 Initializing blockchain connection in background...');
+        const { fabricService } = await import('./services/FabricService');
+        await fabricService.connect();
+        blockchainConnected = true;
+        logger.info('✅ Blockchain connected successfully');
+      } catch (error: any) {
+        logger.warn(`⚠️  Blockchain connection warning: ${error.message}`);
+        logger.warn('⚠️  Continuing with database/local blockchain sync');
+      }
+
+      if (blockchainConnected) {
+        try {
+          logger.info('🔄 Starting blockchain sync retry service...');
+          const { blockchainSyncRetryService } = await import('./services/BlockchainSyncRetryService');
+          blockchainSyncRetryService.start();
+          logger.info('✅ Blockchain sync retry service started');
+        } catch (error: any) {
+          logger.warn(`⚠️  Failed to start retry service: ${error.message}`);
+        }
+      }
+    })();
 
     // Graceful shutdown
     const shutdown = async () => {

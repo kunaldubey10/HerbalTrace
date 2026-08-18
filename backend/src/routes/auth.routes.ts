@@ -191,7 +191,7 @@ router.post('/registration-requests/:id/approve', authenticate, authorize('Admin
     // Auto-generate credentials
     const userId = `${role.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
     const username = request.email.split('@')[0];
-    const password = `HT${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+    const password = req.body.initialPassword || 'Password@123';
 
     // Hash password
     const passwordHash = bcrypt.hashSync(password, 10);

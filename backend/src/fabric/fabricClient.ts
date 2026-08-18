@@ -35,64 +35,24 @@ export class FabricClient {
   }
 
   private buildInlineCCP(orgName: string): any {
-    const org = this.getOrgConnectionInfo(orgName);
-    const peerHost = `peer0.${org.alias}.herbaltrace.com`;
-    const orgBase = path.resolve(__dirname, `../../../network/organizations/peerOrganizations/${org.alias}.herbaltrace.com`);
-    const peerTlsPath = path.join(orgBase, `peers/${peerHost}/tls/ca.crt`);
+    const basePeersDir = path.resolve(__dirname, '../../../network/organizations/peerOrganizations');
     const ordererTlsPath = path.resolve(__dirname, '../../../network/organizations/ordererOrganizations/herbaltrace.com/orderers/orderer.herbaltrace.com/msp/tlscacerts/tlsca.herbaltrace.com-cert.pem');
 
-    if (!fs.existsSync(peerTlsPath)) {
-      throw new Error(`Peer TLS cert not found: ${peerTlsPath}`);
-    }
     if (!fs.existsSync(ordererTlsPath)) {
       throw new Error(`Orderer TLS cert not found: ${ordererTlsPath}`);
     }
 
-    const peerTlsPem = fs.readFileSync(peerTlsPath, 'utf8');
     const ordererTlsPem = fs.readFileSync(ordererTlsPath, 'utf8');
 
-    const peerDefinitions: { [key: string]: { url: string; tlsCACerts: { pem: string }; grpcOptions: any } } = {
-      [peerHost]: {
-        url: `grpcs://localhost:${org.peerPort}`,
-        tlsCACerts: { pem: peerTlsPem },
-        grpcOptions: {
-          'ssl-target-name-override': peerHost,
-          hostnameOverride: peerHost,
-        },
-      },
-    };
-
-    const extraPeers = [
-      { alias: 'farmers', host: 'peer0.farmers.herbaltrace.com', port: 7051 },
-      { alias: 'labs', host: 'peer0.labs.herbaltrace.com', port: 9051 },
-      { alias: 'processors', host: 'peer0.processors.herbaltrace.com', port: 11051 },
-      { alias: 'manufacturers', host: 'peer0.manufacturers.herbaltrace.com', port: 13051 },
-    ];
-
-    for (const p of extraPeers) {
-      if (peerDefinitions[p.host]) {
-        continue;
-      }
-      const extraTlsPath = path.resolve(__dirname, `../../../network/organizations/peerOrganizations/${p.alias}.herbaltrace.com/peers/${p.host}/tls/ca.crt`);
-      if (!fs.existsSync(extraTlsPath)) {
-        continue;
-      }
-      const extraTlsPem = fs.readFileSync(extraTlsPath, 'utf8');
-      peerDefinitions[p.host] = {
-        url: `grpcs://localhost:${p.port}`,
-        tlsCACerts: { pem: extraTlsPem },
-        grpcOptions: {
-          'ssl-target-name-override': p.host,
-          hostnameOverride: p.host,
-        },
-      };
-    }
+    const peerFarmersTls = fs.readFileSync(path.join(basePeersDir, 'farmers.herbaltrace.com/peers/peer0.farmers.herbaltrace.com/tls/ca.crt'), 'utf8');
+    const peerLabsTls = fs.readFileSync(path.join(basePeersDir, 'labs.herbaltrace.com/peers/peer0.labs.herbaltrace.com/tls/ca.crt'), 'utf8');
+    const peerProcessorsTls = fs.readFileSync(path.join(basePeersDir, 'processors.herbaltrace.com/peers/peer0.processors.herbaltrace.com/tls/ca.crt'), 'utf8');
 
     return {
-      name: `herbaltrace-${org.alias}`,
+      name: 'herbaltrace-multi',
       version: '1.0.0',
       client: {
-        organization: org.alias,
+        organization: 'farmers',
         connection: {
           timeout: {
             peer: { endorser: '300' },
@@ -101,12 +61,37 @@ export class FabricClient {
         },
       },
       organizations: {
-        [org.alias]: {
-          mspid: org.mspId,
-          peers: [peerHost],
+        farmers: { mspid: 'FarmersCoopMSP', peers: ['peer0.farmers.herbaltrace.com'] },
+        labs: { mspid: 'TestingLabsMSP', peers: ['peer0.labs.herbaltrace.com'] },
+        processors: { mspid: 'ProcessorsMSP', peers: ['peer0.processors.herbaltrace.com'] },
+        manufacturers: { mspid: 'ManufacturersMSP', peers: ['peer0.manufacturers.herbaltrace.com'] },
+      },
+      peers: {
+        'peer0.farmers.herbaltrace.com': {
+          url: 'grpcs://localhost:7051',
+          tlsCACerts: { pem: peerFarmersTls },
+          grpcOptions: {
+            'ssl-target-name-override': 'peer0.farmers.herbaltrace.com',
+            hostnameOverride: 'peer0.farmers.herbaltrace.com',
+          },
+        },
+        'peer0.labs.herbaltrace.com': {
+          url: 'grpcs://localhost:9051',
+          tlsCACerts: { pem: peerLabsTls },
+          grpcOptions: {
+            'ssl-target-name-override': 'peer0.labs.herbaltrace.com',
+            hostnameOverride: 'peer0.labs.herbaltrace.com',
+          },
+        },
+        'peer0.processors.herbaltrace.com': {
+          url: 'grpcs://localhost:11051',
+          tlsCACerts: { pem: peerProcessorsTls },
+          grpcOptions: {
+            'ssl-target-name-override': 'peer0.processors.herbaltrace.com',
+            hostnameOverride: 'peer0.processors.herbaltrace.com',
+          },
         },
       },
-      peers: peerDefinitions,
       orderers: {
         'orderer.herbaltrace.com': {
           url: 'grpcs://localhost:7050',
@@ -120,10 +105,11 @@ export class FabricClient {
       channels: {
         [this.channelName]: {
           orderers: ['orderer.herbaltrace.com'],
-          peers: Object.keys(peerDefinitions).reduce((acc: any, host) => {
-            acc[host] = {};
-            return acc;
-          }, {}),
+          peers: {
+            'peer0.farmers.herbaltrace.com': {},
+            'peer0.labs.herbaltrace.com': {},
+            'peer0.processors.herbaltrace.com': {},
+          },
         },
       },
     };
@@ -203,24 +189,13 @@ export class FabricClient {
       logger.info(`🔍 Attempting to connect to Fabric network...`);
       logger.info(`User: ${userId}, Organization: ${orgName}`);
 
-      // Temporary interoperability mode: use Processors admin identity for writes.
-      // Farmer/Lab/Manufacturer wallet identities may be stale after CA regeneration.
-      const gatewayOrg = 'processors';
+      const gatewayOrg = 'farmers';
       
       // Ensure wallet is initialized
       await this.initializeWallet();
       await this.upsertAdminIdentityFromMSP(gatewayOrg);
 
-      // Load connection profile
-      let ccp: any;
-      try {
-        const ccpPath = this.getCCPPath(gatewayOrg);
-        logger.info(`📄 Loading connection profile: ${ccpPath}`);
-        ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
-      } catch (profileError: any) {
-        logger.warn(`Connection profile file unavailable, using inline profile for ${gatewayOrg}: ${profileError.message}`);
-        ccp = this.buildInlineCCP(gatewayOrg);
-      }
+      const ccp = this.buildInlineCCP(gatewayOrg);
 
       // Use org admin identity for transaction submissions.
       // User-specific identities can drift after CA/cert regeneration and cause malformed creator errors.

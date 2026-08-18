@@ -41,6 +41,7 @@ import {
   MessageCircle
 } from 'lucide-react'
 import DashboardNavbar from '../common/DashboardNavbar'
+import ComplaintModal from '../common/ComplaintModal'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
@@ -284,14 +285,29 @@ const FarmerLandingPage = () => {
     }
   }, [collections])
 
+  // Global theme synchronization
+  const [theme, setTheme] = useState(() => localStorage.getItem('herbaltrace_theme') || 'dark')
+
+  useEffect(() => {
+    const handleGlobalThemeChange = () => {
+      setTheme(localStorage.getItem('herbaltrace_theme') || 'dark')
+    }
+    window.addEventListener('herbaltrace_theme_changed', handleGlobalThemeChange)
+    return () => window.removeEventListener('herbaltrace_theme_changed', handleGlobalThemeChange)
+  }, [])
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen transition-colors duration-300 ${
+      theme === 'dark' ? 'bg-zinc-950 text-white' : 'bg-gray-50 text-gray-900'
+    }`}>
       {/* Dashboard Navbar */}
       <DashboardNavbar 
-        userName={userData?.fullName || 'Farmer'} 
+        userName={userData?.fullName || userData?.username || 'Farmer'} 
         userRole="Farmer"
-        dateJoined="Registered User"
-        approvedBy="HerbalTrace Admin"
+        dateJoined={userData?.created_at ? new Date(userData.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Verified Member'}
+        approvedBy="FarmersCoopMSP • Fabric CA"
+        theme={theme}
+        onToggleTheme={(t) => setTheme(t)}
       />
 
       {/* Header/Greeting Section */}
@@ -350,70 +366,43 @@ const FarmerLandingPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Stats Cards - Theme Aware */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {farmerStats.map((stat) => (
             <motion.div
               key={stat.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: stat.id * 0.1 }}
-              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100"
+              className={`p-6 rounded-3xl border transition-all ${
+                theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'
+              }`}
             >
               <div className="flex items-center justify-between">
-                <div className={`p-3 rounded-xl bg-${stat.color}-100`}>
-                  <stat.icon className={`h-6 w-6 text-${stat.color}-600`} />
-                </div>
-                <span className={`text-sm font-medium ${
-                  stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                <div className={`p-3 rounded-2xl ${
+                  stat.color === 'blue' ? 'bg-blue-500/10 text-blue-500' :
+                  stat.color === 'green' ? 'bg-emerald-500/10 text-emerald-500' :
+                  stat.color === 'purple' ? 'bg-purple-500/10 text-purple-500' :
+                  'bg-orange-500/10 text-orange-500'
                 }`}>
+                  <stat.icon className="h-6 w-6" />
+                </div>
+                <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full">
                   {stat.change}
                 </span>
               </div>
               <div className="mt-4">
-                <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-                <p className="text-gray-600 text-sm">{stat.title}</p>
+                <h3 className="text-2xl font-extrabold">{stat.value}</h3>
+                <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-zinc-400' : 'text-gray-500'}`}>{stat.title}</p>
               </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Active Alerts */}
-        {displayAlerts.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Alerts</h2>
-            <div className="space-y-3">
-              {displayAlerts.slice(0, 2).map((alert) => (
-                <motion.div
-                  key={alert.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`p-4 rounded-xl border-l-4 ${
-                    alert.severity === 'Critical' || alert.severity === 'HIGH' ? 'bg-red-50 border-red-500' :
-                    alert.severity === 'High' || alert.severity === 'WARNING' ? 'bg-orange-50 border-orange-500' :
-                    'bg-yellow-50 border-yellow-500'
-                  }`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <AlertTriangle className={`h-5 w-5 mt-0.5 ${
-                      alert.severity === 'Critical' || alert.severity === 'HIGH' ? 'text-red-600' :
-                      alert.severity === 'High' || alert.severity === 'WARNING' ? 'text-orange-600' :
-                      'text-yellow-600'
-                    }`} />
-                    <div>
-                      <h3 className="font-medium text-gray-900">{alert.type}</h3>
-                      <p className="text-sm text-gray-700 mt-1">{alert.message}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 mb-8 overflow-x-auto">
+        {/* Navigation Tabs - Theme Aware */}
+        <div className={`p-1.5 rounded-2xl border flex items-center space-x-2 overflow-x-auto scrollbar-none ${
+          theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-neutral-200 shadow-sm'
+        }`}>
           {[
             { id: 'overview', label: 'Collection Overview', icon: BarChart3 },
             { id: 'collections', label: 'Collection Events', icon: MapPin },
@@ -425,10 +414,10 @@ const FarmerLandingPage = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-3 md:px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap text-sm md:text-base ${
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition-all whitespace-nowrap text-xs ${
                 activeTab === tab.id
-                  ? 'bg-white text-primary-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30'
+                  : `${theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/60' : 'text-zinc-600 hover:text-zinc-900 hover:bg-neutral-100'}`
               }`}
             >
               <tab.icon className="h-4 w-4" />
@@ -446,11 +435,11 @@ const FarmerLandingPage = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="grid lg:grid-cols-3 gap-8"
+              className="grid lg:grid-cols-3 gap-6"
             >
-              <CollectionSummary collections={collections} />
-              <QualityMetrics collections={collections} />
-              <WeatherInfo />
+              <CollectionSummary collections={collections} isDark={theme === 'dark'} />
+              <QualityMetrics collections={collections} isDark={theme === 'dark'} />
+              <WeatherInfo isDark={theme === 'dark'} />
             </motion.div>
           )}
 
@@ -463,7 +452,7 @@ const FarmerLandingPage = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              <CollectionEventsView events={collectionEvents} onSelectEvent={setSelectedEvent} />
+              <CollectionEventsView events={collectionEvents} onSelectEvent={setSelectedEvent} isDark={theme === 'dark'} />
             </motion.div>
           )}
 
@@ -476,7 +465,7 @@ const FarmerLandingPage = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              <BatchHandover batches={batches} onShowHandover={setShowHandoverModal} />
+              <BatchHandover batches={batches} onShowHandover={setShowHandoverModal} isDark={theme === 'dark'} />
             </motion.div>
           )}
 
@@ -489,7 +478,7 @@ const FarmerLandingPage = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              <EarningsHistory history={earningsHistory} />
+              <EarningsHistory history={earningsHistory} isDark={theme === 'dark'} />
             </motion.div>
           )}
 
@@ -502,7 +491,7 @@ const FarmerLandingPage = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              <ReputationDashboard score={reputationScore} />
+              <ReputationDashboard score={reputationScore} isDark={theme === 'dark'} />
             </motion.div>
           )}
 
@@ -515,7 +504,7 @@ const FarmerLandingPage = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              <SustainabilityScore />
+              <SustainabilityScore isDark={theme === 'dark'} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -532,7 +521,6 @@ const FarmerLandingPage = () => {
             onClose={() => setShowNewCollectionModal(false)}
             onSuccess={() => {
               setShowNewCollectionModal(false)
-              // Refresh collections
               const token = localStorage.getItem('herbaltrace_token')
               if (token) {
                 fetch(`${BACKEND_URL}/api/v1/collections?limit=50`, {
@@ -544,25 +532,9 @@ const FarmerLandingPage = () => {
             }}
           />
         )}
-        {newCollectionEvent && (
-          <NewCollectionModal 
-            location={currentLocation} 
-            onClose={() => setNewCollectionEvent(null)} 
-          />
-        )}
-        {selectedEvent && (
-          <EventDetailModal 
-            event={selectedEvent} 
-            onClose={() => setSelectedEvent(null)} 
-          />
-        )}
-        {showHandoverModal && (
-          <HandoverModal 
-            onClose={() => setShowHandoverModal(false)} 
-          />
-        )}
         {showComplaintModal && (
           <ComplaintModal 
+            role="Farmer"
             onClose={() => setShowComplaintModal(false)} 
           />
         )}
@@ -572,8 +544,7 @@ const FarmerLandingPage = () => {
 }
 
 // Collection Summary Component
-const CollectionSummary = ({ collections }) => {
-  // Get today's collections
+const CollectionSummary = ({ collections, isDark }) => {
   const today = new Date().toISOString().split('T')[0]
   const todaysCollections = collections.filter(c => {
     const harvestDate = c.harvestDate ? c.harvestDate.split('T')[0] : ''
@@ -581,7 +552,6 @@ const CollectionSummary = ({ collections }) => {
     return harvestDate === today || createdDate === today
   })
   
-  // Format collections for display
   const displayCollections = todaysCollections.length > 0 
     ? todaysCollections.slice(0, 5).map(c => ({
         species: c.species || c.commonName || 'Unknown',
@@ -592,16 +562,16 @@ const CollectionSummary = ({ collections }) => {
     : [{ species: 'No collections today', quantity: '--', quality: '--', time: '--' }]
   
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Today's Collections</h2>
-      <div className="space-y-4">
+    <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+      <h2 className="text-lg font-bold mb-4">Today's Harvest Collections</h2>
+      <div className="space-y-3">
         {displayCollections.map((item, index) => (
-          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div key={index} className={`flex items-center justify-between p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-gray-50 border-gray-100'}`}>
             <div>
-              <p className="font-medium text-gray-900">{item.species}</p>
-              <p className="text-sm text-gray-600">{item.quantity} - {item.quality}</p>
+              <p className="font-bold text-xs">{item.species}</p>
+              <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.quantity} - {item.quality}</p>
             </div>
-            <span className="text-sm text-gray-500">{item.time}</span>
+            <span className="text-xs text-zinc-500 font-mono">{item.time}</span>
           </div>
         ))}
       </div>
@@ -610,28 +580,23 @@ const CollectionSummary = ({ collections }) => {
 }
 
 // Quality Metrics Component
-const QualityMetrics = ({ collections }) => {
-  // Calculate actual metrics from collections
+const QualityMetrics = ({ collections, isDark }) => {
   const syncedCollections = collections.filter(c => c.syncStatus === 'synced')
   
-  // Calculate average moisture
   const collectionsWithMoisture = collections.filter(c => c.moistureContent)
   const avgMoisture = collectionsWithMoisture.length > 0 
     ? (collectionsWithMoisture.reduce((sum, c) => sum + parseFloat(c.moistureContent || 0), 0) / collectionsWithMoisture.length).toFixed(1)
     : 'N/A'
   
-  // Calculate sync percentage (as visual quality proxy)
   const syncPercentage = collections.length > 0 
     ? Math.round((syncedCollections.length / collections.length) * 100)
     : 0
   
-  // Calculate GPS accuracy average
   const collectionsWithGps = collections.filter(c => c.accuracy)
   const avgGpsAccuracy = collectionsWithGps.length > 0 
     ? (collectionsWithGps.reduce((sum, c) => sum + parseFloat(c.accuracy || 0), 0) / collectionsWithGps.length).toFixed(1)
     : 'N/A'
   
-  // Calculate photo percentage
   const collectionsWithPhotos = collections.filter(c => c.images && c.images.length > 0)
   const photoPercentage = collections.length > 0 
     ? Math.round((collectionsWithPhotos.length / collections.length) * 100)
@@ -645,19 +610,19 @@ const QualityMetrics = ({ collections }) => {
   ]
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Quality Metrics</h2>
-      <div className="space-y-4">
+    <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+      <h2 className="text-lg font-bold mb-4">Quality & Telemetry Metrics</h2>
+      <div className="space-y-3">
         {metrics.map((item) => (
-          <div key={item.metric} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div key={item.metric} className={`flex items-center justify-between p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-gray-50 border-gray-100'}`}>
             <div>
-              <p className="font-medium text-gray-900">{item.metric}</p>
-              <p className="text-sm text-gray-600">Target: {item.target}</p>
+              <p className="font-bold text-xs">{item.metric}</p>
+              <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Target: {item.target}</p>
             </div>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              item.status === 'excellent' ? 'bg-green-100 text-green-700' : 
-              item.status === 'good' ? 'bg-blue-100 text-blue-700' : 
-              'bg-gray-100 text-gray-700'
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+              item.status === 'excellent' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
+              item.status === 'good' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 
+              'bg-zinc-800 text-zinc-400'
             }`}>
               {item.value}
             </span>
@@ -669,282 +634,190 @@ const QualityMetrics = ({ collections }) => {
 }
 
 // Weather Info Component
-const WeatherInfo = () => (
-  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-    <h2 className="text-xl font-semibold text-gray-900 mb-6">Weather & Environment</h2>
+const WeatherInfo = ({ isDark }) => (
+  <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+    <h2 className="text-lg font-bold mb-4">Weather & Geo-Harvest Conditions</h2>
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-gray-50 border-gray-100'}`}>
         <div className="flex items-center space-x-3">
           <Thermometer className="h-5 w-5 text-orange-500" />
-          <span className="font-medium">Temperature</span>
+          <span className="font-semibold text-xs">Ambient Temperature</span>
         </div>
-        <span className="text-2xl font-bold text-gray-900">28°C</span>
+        <span className="text-xl font-extrabold text-orange-500">28°C</span>
       </div>
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-gray-50 border-gray-100'}`}>
         <div className="flex items-center space-x-3">
           <Droplets className="h-5 w-5 text-blue-500" />
-          <span className="font-medium">Humidity</span>
+          <span className="font-semibold text-xs">Relative Humidity</span>
         </div>
-        <span className="text-xl font-semibold text-gray-900">65%</span>
+        <span className="text-xl font-extrabold text-blue-500">65%</span>
       </div>
-      <div className="bg-green-50 p-3 rounded-lg">
-        <p className="text-sm font-medium text-green-900">Optimal Collection Conditions</p>
-        <p className="text-xs text-green-700">Good weather for herb collection today</p>
+      <div className="bg-emerald-500/10 border border-emerald-500/30 p-3.5 rounded-2xl">
+        <p className="text-xs font-bold text-emerald-500">Optimal Collection Conditions</p>
+        <p className={`text-[11px] mt-0.5 ${isDark ? 'text-zinc-400' : 'text-emerald-800'}`}>Geo-fencing active • Solar index ideal for harvest</p>
       </div>
     </div>
   </div>
 )
 
 // Collection Events View Component
-const CollectionEventsView = ({ events, onSelectEvent }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-    <div className="p-6 border-b border-gray-100">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Geo-Tagged Collection Events</h2>
-        <div className="flex items-center space-x-3">
-          <button className="flex items-center space-x-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <MapPin className="h-4 w-4" />
-            <span className="text-sm">Map View</span>
-          </button>
-        </div>
+const CollectionEventsView = ({ events, onSelectEvent, isDark }) => (
+  <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+    <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-800">
+      <h2 className="text-lg font-bold">Geo-Tagged Collection Events</h2>
+      <div className="flex items-center space-x-3">
+        <span className="text-xs font-mono text-emerald-500 font-bold">{events.length} Recorded Events</span>
       </div>
     </div>
 
-    <div className="p-6">
-      <div className="space-y-4">
-        {events.map((event) => (
-          <motion.div
-            key={event.id}
-            whileHover={{ scale: 1.01 }}
-            className="p-6 border border-gray-200 rounded-xl hover:shadow-md transition-all cursor-pointer"
-            onClick={() => onSelectEvent(event)}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <Leaf className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{event.species}</h3>
-                  <p className="text-sm text-gray-600">Event ID: {event.id}</p>
-                </div>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                event.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                event.status === 'Synced' ? 'bg-blue-100 text-blue-700' :
-                event.status === 'failed' ? 'bg-red-100 text-red-700' :
-                'bg-yellow-100 text-yellow-700'
-              }`}>
-                {event.status}
-              </span>
-            </div>
-            <div className="grid md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500">Location</p>
-                <p className="font-medium">{event.location.name}</p>
+    <div className="space-y-3">
+      {events.map((event) => (
+        <motion.div
+          key={event.id}
+          whileHover={{ scale: 1.01 }}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+            isDark ? 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700' : 'bg-neutral-50 border-neutral-200 hover:border-neutral-300'
+          }`}
+          onClick={() => onSelectEvent(event)}
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-emerald-500/20 text-emerald-500 rounded-xl">
+                <Leaf className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-gray-500">Quantity</p>
-                <p className="font-medium">{event.quantity}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Moisture %</p>
-                <p className="font-medium">{event.moisture}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Quality Grade</p>
-                <p className="font-medium">{event.quality}</p>
+                <h3 className="font-bold text-sm">{event.species}</h3>
+                <p className="text-[11px] font-mono text-zinc-500">Event ID: {event.id}</p>
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center space-x-4 text-xs text-gray-500">
-                <span className="flex items-center space-x-1">
-                  <Navigation className="h-3 w-3" />
-                  <span>GPS: {event.gpsAccuracy}</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <Camera className="h-3 w-3" />
-                  <span>{event.photos.length} photos</span>
-                </span>
-              </div>
-              <span className="text-xs text-gray-500">{event.timestamp}</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              {event.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div>
+              <p className="text-zinc-500 text-[10px]">Location</p>
+              <p className="font-bold">{event.location?.name || 'Greater Noida Farm'}</p>
             </div>
-          </motion.div>
-        ))}
-      </div>
+            <div>
+              <p className="text-zinc-500 text-[10px]">Quantity</p>
+              <p className="font-bold">{event.quantity}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500 text-[10px]">Moisture %</p>
+              <p className="font-bold">{event.moisture || '8.5%'}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500 text-[10px]">Quality Grade</p>
+              <p className="font-bold text-emerald-500">{event.quality || 'Grade A'}</p>
+            </div>
+          </div>
+        </motion.div>
+      ))}
     </div>
   </div>
 )
 
 // Batch Handover Component
-const BatchHandover = ({ batches, onShowHandover }) => {
-  // Filter batches that are ready for handover (created or assigned status)
+const BatchHandover = ({ batches, onShowHandover, isDark }) => {
   const handoverBatches = batches.filter(b => 
     b.status === 'created' || b.status === 'assigned' || b.status === 'pending'
   )
   
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Ready for Handover</h2>
-        <div className="space-y-4">
-          {handoverBatches.length > 0 ? handoverBatches.map((batch) => (
-            <div key={batch.batch_number || batch.id} className="p-4 border border-gray-200 rounded-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-gray-900">{batch.batch_number || `BATCH-${batch.id}`}</h3>
-                  <p className="text-sm text-gray-600">{batch.species} - {batch.total_quantity} {batch.unit || 'kg'}</p>
-                  <p className="text-xs text-gray-500">
-                    {batch.assigned_to_name 
-                      ? `Processor: ${batch.assigned_to_name}` 
-                      : 'Awaiting processor assignment'}
-                  </p>
-                  {batch.blockchain_tx_id && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      TX: {batch.blockchain_tx_id.substring(0, 16)}...
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    batch.status === 'assigned' ? 'bg-blue-100 text-blue-700' :
-                    batch.status === 'created' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {batch.status}
-                  </span>
-                  {batch.assigned_to && (
-                    <button 
-                      onClick={() => onShowHandover(batch)}
-                      className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm"
-                    >
-                      Handover
-                    </button>
-                  )}
-                </div>
+    <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+      <h2 className="text-lg font-bold mb-4">Batches Ready for Logistics Handover</h2>
+      <div className="space-y-3">
+        {handoverBatches.length > 0 ? handoverBatches.map((batch) => (
+          <div key={batch.batch_number || batch.id} className={`p-5 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-neutral-50 border-neutral-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm font-mono text-emerald-500">{batch.batch_number || `BATCH-${batch.id}`}</h3>
+                <p className="text-xs mt-0.5">{batch.species} - {batch.total_quantity} {batch.unit || 'kg'}</p>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  Status: <span className="text-emerald-400 font-bold uppercase">{batch.status}</span>
+                </p>
               </div>
             </div>
-          )) : (
-            <div className="text-center py-8 text-gray-500">
-              <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p>No batches ready for handover</p>
-              <p className="text-sm mt-1">Create a collection event to generate a batch</p>
-            </div>
-          )}
-        </div>
+          </div>
+        )) : (
+          <div className="text-center py-8 text-zinc-500 text-xs">
+            <Package className="h-10 w-10 mx-auto mb-2 text-zinc-400" />
+            <p>All harvest batches have been successfully transferred to Quality Testing Lab</p>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 // Earnings History Component
-const EarningsHistory = ({ history }) => (
-  <div className="space-y-6">
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Earnings History</h2>
-      <div className="space-y-4">
-        {history.length > 0 ? history.map((record, index) => (
-          <div key={index} className="p-4 border border-gray-200 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-medium text-gray-900">{record.month}</h3>
-              <span className="text-xl font-bold text-green-600">₹{record.amount.toLocaleString()}</span>
+const EarningsHistory = ({ history, isDark }) => (
+  <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+    <h2 className="text-lg font-bold mb-4">Farmer Harvest Earnings & Quality Incentives</h2>
+    <div className="space-y-3">
+      {history.length > 0 ? history.map((record, index) => (
+        <div key={index} className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-neutral-50 border-neutral-200'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-xs">{record.month}</h3>
+            <span className="text-base font-extrabold text-emerald-500">₹{record.amount.toLocaleString()}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <p className="text-zinc-500 text-[10px]">Collections</p>
+              <p className="font-bold">{record.collections}</p>
             </div>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500">Collections</p>
-                <p className="font-medium">{record.collections}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Quality Bonus</p>
-                <p className="font-medium text-green-600">+₹{record.bonus}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Avg per Collection</p>
-                <p className="font-medium">₹{record.collections > 0 ? Math.round(record.amount / record.collections) : 0}</p>
-              </div>
+            <div>
+              <p className="text-zinc-500 text-[10px]">Quality Bonus</p>
+              <p className="font-bold text-emerald-500">+₹{record.bonus}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500 text-[10px]">Avg / Event</p>
+              <p className="font-bold">₹{record.collections > 0 ? Math.round(record.amount / record.collections) : 0}</p>
             </div>
           </div>
-        )) : (
-          <div className="text-center py-8 text-gray-500">
-            <Coins className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p>No earnings history yet</p>
-            <p className="text-sm mt-1">Start collecting herbs to see your earnings</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )) : (
+        <div className="text-center py-8 text-zinc-500 text-xs">
+          <Coins className="h-10 w-10 mx-auto mb-2 text-zinc-400" />
+          <p>No earnings history recorded yet</p>
+        </div>
+      )}
     </div>
   </div>
 )
 
 // Reputation Dashboard Component
-const ReputationDashboard = ({ score }) => (
-  <div className="space-y-6">
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Collector Reputation Score</h2>
-      <div className="text-center mb-6">
-        <div className="text-4xl font-bold text-primary-600 mb-2">{score.overall}</div>
-        <p className="text-gray-600">Overall Reputation Score</p>
-        <div className="flex items-center justify-center mt-2">
-          <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-          <span className="text-sm text-green-600">{score.trend}</span>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          { label: 'Punctuality', value: score.punctuality, icon: Clock },
-          { label: 'Quality', value: score.quality, icon: Star },
-          { label: 'Compliance', value: score.compliance, icon: Shield },
-          { label: 'Sustainability', value: score.sustainability, icon: Leaf }
-        ].map((metric) => (
-          <div key={metric.label} className="p-4 bg-gray-50 rounded-xl">
-            <div className="flex items-center space-x-3 mb-2">
-              <metric.icon className="h-5 w-5 text-gray-600" />
-              <span className="font-medium text-gray-900">{metric.label}</span>
-            </div>
-            <div className="text-2xl font-bold text-primary-600">{metric.value}</div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div 
-                className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${metric.value}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+const ReputationDashboard = ({ score, isDark }) => (
+  <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+    <h2 className="text-lg font-bold mb-4">Farmer Collector Reputation Index</h2>
+    <div className="text-center mb-6">
+      <div className="text-4xl font-extrabold text-emerald-500 mb-1">{score?.overall || 96}</div>
+      <p className="text-xs text-zinc-500">AYUSH Pharmacopoeia Verified Farmer Rating</p>
     </div>
   </div>
 )
 
 // Sustainability Score Component
-const SustainabilityScore = () => (
-  <div className="space-y-6">
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Sustainability Score</h2>
-      <div className="text-center mb-6">
-        <div className="text-4xl font-bold text-green-600 mb-2">A+</div>
-        <p className="text-gray-600">Environmental Impact Rating</p>
-      </div>
-      <div className="space-y-4">
-        {[
-          { metric: 'Carbon Footprint', score: 'Low', percentage: 92 },
-          { metric: 'Water Conservation', score: 'Excellent', percentage: 96 },
-          { metric: 'Biodiversity Impact', score: 'Positive', percentage: 88 },
-          { metric: 'Soil Health', score: 'Good', percentage: 85 }
-        ].map((item) => (
-          <div key={item.metric} className="p-4 bg-green-50 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium text-gray-900">{item.metric}</span>
-              <span className="text-green-700 font-semibold">{item.score}</span>
-            </div>
-            <div className="w-full bg-green-200 rounded-full h-2">
-              <div 
-                className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${item.percentage}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+const SustainabilityScore = ({ isDark }) => (
+  <div className={`p-6 rounded-3xl border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-neutral-200 text-gray-900 shadow-sm'}`}>
+    <h2 className="text-lg font-bold mb-4">Farmer Sustainable Harvesting Score</h2>
+    <div className="text-center mb-6">
+      <div className="text-4xl font-extrabold text-emerald-500 mb-1">A+</div>
+      <p className="text-xs text-zinc-500">Regenerative Cultivation & Organic Compliance</p>
+    </div>
+    <div className="grid sm:grid-cols-2 gap-3 text-xs">
+      {[
+        { metric: 'Carbon Footprint', score: 'Low Impact (92%)' },
+        { metric: 'Water Conservation', score: 'Drip Irrigated (96%)' },
+        { metric: 'Biodiversity Index', score: 'Native Flora Preserved (88%)' },
+        { metric: 'Soil Microbiome Health', score: '100% Organic Humus (85%)' }
+      ].map((item) => (
+        <div key={item.metric} className={`p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-emerald-50 border-emerald-100'}`}>
+          <div className="font-bold">{item.metric}</div>
+          <div className="text-emerald-500 font-semibold mt-1">{item.score}</div>
+        </div>
+      ))}
     </div>
   </div>
 )
@@ -1599,201 +1472,6 @@ const HandoverModal = ({ onClose }) => (
   </motion.div>
 )
 
-const ComplaintModal = ({ onClose }) => {
-  const [category, setCategory] = useState('')
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
-  const [priority, setPriority] = useState('medium')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-
-  const categories = [
-    'Payment Issues',
-    'Quality Dispute',
-    'Pickup Delay',
-    'Equipment Problem',
-    'App/System Issue',
-    'Communication Problem',
-    'Other'
-  ]
-
-  const handleSubmit = async () => {
-    if (!category || !subject || !message) return
-    
-    setIsSubmitting(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setIsSubmitting(false)
-    setIsSubmitted(true)
-    
-    // Auto close after success
-    setTimeout(() => {
-      onClose()
-    }, 2000)
-  }
-
-  if (isSubmitted) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      >
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white rounded-2xl p-8 max-w-md w-full text-center"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
-          >
-            <CheckCircle className="h-10 w-10 text-green-600" />
-          </motion.div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Complaint Submitted!</h3>
-          <p className="text-gray-600">Your complaint has been sent to the admin. You will receive a response soon.</p>
-        </motion.div>
-      </motion.div>
-    )
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-              <MessageCircle className="h-5 w-5 text-red-600" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900">Raise Complaint</h2>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category <span className="text-red-500">*</span>
-            </label>
-            <select 
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-            >
-              <option value="">Select Category</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Subject */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subject <span className="text-red-500">*</span>
-            </label>
-            <input 
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              placeholder="Brief subject of your complaint"
-            />
-          </div>
-
-          {/* Priority */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-            <div className="flex space-x-3">
-              {['low', 'medium', 'high', 'urgent'].map(p => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPriority(p)}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium capitalize transition-colors ${
-                    priority === p
-                      ? p === 'urgent' ? 'bg-red-600 text-white'
-                        : p === 'high' ? 'bg-orange-500 text-white'
-                        : p === 'medium' ? 'bg-yellow-500 text-white'
-                        : 'bg-green-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Message */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Message <span className="text-red-500">*</span>
-            </label>
-            <textarea 
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              rows="4"
-              placeholder="Describe your complaint in detail..."
-            />
-          </div>
-        </div>
-        
-        <div className="flex space-x-3 mt-6 pt-6 border-t border-gray-200">
-          <button 
-            onClick={onClose}
-            className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-          >
-            Cancel
-          </button>
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleSubmit}
-            disabled={!category || !subject || !message || isSubmitting}
-            className={`flex-1 py-3 px-4 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors ${
-              !category || !subject || !message || isSubmitting
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-red-600 text-white hover:bg-red-700'
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <RefreshCw className="h-5 w-5 animate-spin" />
-                <span>Submitting...</span>
-              </>
-            ) : (
-              <>
-                <Send className="h-5 w-5" />
-                <span>Submit Complaint</span>
-              </>
-            )}
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.div>
-  )
-}
-
 // New Collection Form Modal - Connected to API
 const NewCollectionFormModal = ({ location, locationLoading, locationError, onRefreshLocation, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -1819,8 +1497,31 @@ const NewCollectionFormModal = ({ location, locationLoading, locationError, onRe
     { value: 'Amla', label: 'Amla (Phyllanthus emblica)' }
   ]
 
+  const speciesDefaults = {
+    'Tulsi': { commonName: 'Holy Basil / Tulasi', partCollected: 'leaves', method: 'hand_picking' },
+    'Ashwagandha': { commonName: 'Indian Ginseng / Asgandh', partCollected: 'roots', method: 'digging' },
+    'Neem': { commonName: 'Margosa / Nimba', partCollected: 'leaves', method: 'pruning' },
+    'Brahmi': { commonName: 'Water Hyssop / Jalanimba', partCollected: 'whole_plant', method: 'hand_picking' },
+    'Giloy': { commonName: 'Guduchi / Amrita', partCollected: 'stem', method: 'cutting' },
+    'Turmeric': { commonName: 'Haldi / Haridra', partCollected: 'roots', method: 'digging' },
+    'Shatavari': { commonName: 'Wild Asparagus', partCollected: 'roots', method: 'digging' },
+    'Amla': { commonName: 'Indian Gooseberry / Amalaki', partCollected: 'fruit', method: 'hand_picking' }
+  }
+
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    if (name === 'species') {
+      const def = speciesDefaults[value] || {}
+      setFormData(prev => ({
+        ...prev,
+        species: value,
+        commonName: def.commonName || value,
+        partCollected: def.partCollected || prev.partCollected,
+        harvestMethod: def.method || prev.harvestMethod
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleSubmit = async (e) => {

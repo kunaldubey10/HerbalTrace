@@ -61,11 +61,20 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
     }
 
     // Get batch details
-    const batch = db.prepare('SELECT * FROM batches WHERE id = ?').get(batchId) as any;
+    const batch = db.prepare('SELECT * FROM batches WHERE id = ? OR batch_number = ?').get(batchId, batchId) as any;
     if (!batch) {
       return res.status(404).json({
         success: false,
         message: 'Batch not found'
+      });
+    }
+
+    // Enforce 1 QR for 1 batch rule: prevent re-manufacturing an already processed batch
+    const existingProduct = db.prepare('SELECT * FROM products WHERE batch_id = ? OR batch_id = ?').get(batch.batch_number, batch.id) as any;
+    if (existingProduct) {
+      return res.status(400).json({
+        success: false,
+        message: `Batch ${batch.batch_number} has already been formulated into product '${existingProduct.product_name}' (QR: ${existingProduct.qr_code}). Exactly 1 QR Passport is allowed per raw batch.`
       });
     }
 
@@ -75,7 +84,7 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       FROM collection_events_cache ce
       JOIN batch_collections bc ON ce.id = bc.collection_id
       WHERE bc.batch_id = ?
-    `).all(batchId) as any[];
+    `).all(batch.id) as any[];
 
     // Get QC tests for batch
     const qcTests = db.prepare(`
@@ -138,20 +147,20 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       const productData = {
         id: productId,
         type: 'Product',
+        batchId: batch.batch_number,
         productName,
         productType,
-        manufacturerId: req.user!.userId,
-        manufacturerName: req.user!.name || req.user!.userId,
-        batchId: batch.batch_number,
-        manufactureDate,
-        expiryDate,
         quantity,
         unit,
+        manufactureDate,
+        expiryDate,
         qrCode,
         ingredients,
         collectionEventIds: batchCollections.map((c: any) => c.collection_id || c.id),
         qualityTestIds: qcTests.map((t: any) => t.test_id || t.id),
         processingStepIds,
+        manufacturerId: req.user!.userId,
+        manufacturerName: req.user!.name || req.user!.userId,
         certifications: certifications || [],
         packagingDate: timestamp,
         status: 'manufactured',
@@ -173,9 +182,11 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
     }
 
     // 3. Generate QR code image BEFORE saving to database
-    // QR code now links directly to the Vercel verification page
-    const vercelUrl = process.env.VERCEL_URL || 'https://herbaltrace165343.vercel.app';
-    const verificationUrl = `${vercelUrl}/verify/${qrCode}`;
+    // Dynamically resolve frontend host for authentic mobile scanning
+    const reqHost = req.get('host') || 'localhost:3000';
+    const clientHost = reqHost.includes(':3000') ? reqHost.replace(':3000', ':5173') : reqHost;
+    const frontendBaseUrl = process.env.FRONTEND_URL || `${req.protocol}://${clientHost}`;
+    const verificationUrl = `${frontendBaseUrl}/verify/${qrCode}`;
     
     const qrPayloadTemp = {
       qrCode,
@@ -200,7 +211,7 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       signature,
     };
 
-    // Generate QR code image as data URL - QR now contains the Vercel URL for easy mobile scanning
+    // Generate QR code image as data URL encoding the authentic URL
     const qrCodeDataURL = await QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: 'H',
       type: 'image/png',
@@ -238,9 +249,9 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       'manufactured'
     );
 
-    // 5. Update batch status
-    db.prepare("UPDATE batches SET status = ?, updated_at = datetime('now') WHERE id = ?")
-      .run('processing_complete', batchId);
+    // 5. Update batch status to processing_complete / manufactured
+    db.prepare("UPDATE batches SET status = ?, updated_at = datetime('now') WHERE id = ? OR batch_number = ?")
+      .run('processing_complete', batch.id, batch.batch_number);
 
     // Create product record with QR
     const product = {
@@ -258,7 +269,7 @@ router.post('/products', authenticate, authorize('Admin', 'Manufacturer'), async
       collectionCount: batchCollections.length,
       qcTestCount: qcTests.length,
       processingStepCount: processingStepIds.length,
-      verificationUrl: `${process.env.VERCEL_URL || 'https://herbaltrace165343.vercel.app'}/verify/${qrCode}`,
+      verificationUrl,
     };
 
     logger.info(`Product created successfully: ${productId} with QR: ${qrCode}`);

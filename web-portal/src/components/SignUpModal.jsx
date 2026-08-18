@@ -21,6 +21,22 @@ const stateOptions = [
   'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
 ]
 
+export const indianStateDistricts = {
+  'Uttar Pradesh': ['Greater Noida', 'Noida', 'Lucknow', 'Varanasi', 'Prayagraj', 'Kanpur', 'Agra', 'Meerut', 'Gorakhpur', 'Bareilly', 'Aligarh', 'Moradabad', 'Mathura', 'Jhansi'],
+  'Uttarakhand': ['Dehradun', 'Haridwar', 'Nainital', 'Rishikesh', 'Udham Singh Nagar', 'Almora', 'Pauri Garhwal', 'Chamoli', 'Pithoragarh', 'Tehri'],
+  'Madhya Pradesh': ['Neemuch', 'Mandsaur', 'Indore', 'Bhopal', 'Ujjain', 'Gwalior', 'Jabalpur', 'Ratlam', 'Rewa', 'Satna', 'Hoshangabad'],
+  'Rajasthan': ['Jodhpur', 'Nagaur', 'Jaipur', 'Kota', 'Udaipur', 'Bikaner', 'Ajmer', 'Alwar', 'Barmer', 'Chittorgarh', 'Pali', 'Sikar'],
+  'Kerala': ['Wayanad', 'Idukki', 'Palakkad', 'Kozhikode', 'Ernakulam', 'Thrissur', 'Thiruvananthapuram', 'Kottayam', 'Kasaragod', 'Malappuram'],
+  'Karnataka': ['Bangalore Rural', 'Mysore', 'Shimoga', 'Uttara Kannada', 'Dakshina Kannada', 'Belgaum', 'Dharwad', 'Tumkur', 'Chikmagalur', 'Coorg'],
+  'Maharashtra': ['Pune', 'Nashik', 'Nagpur', 'Kolhapur', 'Satara', 'Aurangabad', 'Ahmednagar', 'Solapur', 'Thane', 'Sangli', 'Ratnagiri'],
+  'Gujarat': ['Anand', 'Junagadh', 'Rajkot', 'Ahmedabad', 'Surat', 'Vadodara', 'Kutch', 'Mehsana', 'Patan', 'Bharuch'],
+  'Tamil Nadu': ['Coimbatore', 'Salem', 'Madurai', 'Dindigul', 'Tirunelveli', 'Erode', 'Theni', 'Dharmapuri', 'Nilgiris', 'Tiruchirappalli'],
+  'Himachal Pradesh': ['Kullu', 'Mandi', 'Kangra', 'Shimla', 'Chamba', 'Solan', 'Sirmaur', 'Lahaul and Spiti', 'Kinnaur'],
+  'Assam': ['Guwahati', 'Dibrugarh', 'Jorhat', 'Silchar', 'Nagaon', 'Tezpur', 'Tinsukia', 'Cachar'],
+  'West Bengal': ['Darjeeling', 'Kalimpong', 'Jalpaiguri', 'Kolkata', 'Howrah', 'Hooghly', 'Bankura', 'Purulia', 'Alipurduar'],
+  'Delhi': ['New Delhi', 'North Delhi', 'South Delhi', 'East Delhi', 'West Delhi', 'Central Delhi']
+}
+
 const initialFormState = {
   firstName: '',
   lastName: '',
@@ -293,19 +309,38 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToSignIn }) => {
                           label={content.stateLabel}
                           name="locationState"
                           value={formData.locationState}
-                          onChange={handleChange}
+                          onChange={(e) => {
+                            const newState = e.target.value
+                            setFormData(prev => ({
+                              ...prev,
+                              locationState: newState,
+                              locationDistrict: ''
+                            }))
+                          }}
                           placeholder={content.statePlaceholder}
                           options={stateOptions.map((s) => ({ value: s, label: s }))}
                           required
                         />
-                        <InputField
-                          label={content.districtLabel}
-                          name="locationDistrict"
-                          placeholder={content.districtPlaceholder}
-                          value={formData.locationDistrict}
-                          onChange={handleChange}
-                          required
-                        />
+                        {indianStateDistricts[formData.locationState] ? (
+                          <SelectField
+                            label={content.districtLabel}
+                            name="locationDistrict"
+                            value={formData.locationDistrict}
+                            onChange={handleChange}
+                            placeholder="Select District"
+                            options={indianStateDistricts[formData.locationState].map((d) => ({ value: d, label: d }))}
+                            required
+                          />
+                        ) : (
+                          <InputField
+                            label={content.districtLabel}
+                            name="locationDistrict"
+                            placeholder={content.districtPlaceholder}
+                            value={formData.locationDistrict}
+                            onChange={handleChange}
+                            required
+                          />
+                        )}
                       </div>
                     </div>
 

@@ -163,12 +163,29 @@ router.post('/tests', authenticate, authorize('Admin', 'Lab'), async (req: AuthR
       });
     }
 
+    const normalizedTestType = (() => {
+      if (!test_type) return 'PURITY';
+      const upper = String(test_type).toUpperCase().trim().replace(/[\s-]+/g, '_');
+      const valid = ['IDENTITY', 'PURITY', 'POTENCY', 'CONTAMINATION', 'MICROBIAL', 'HEAVY_METALS', 'PESTICIDES', 'MOISTURE', 'ASH', 'EXTRACTIVES', 'CUSTOM'];
+      if (valid.includes(upper)) return upper;
+      if (upper.includes('HEAVY') || upper.includes('METAL')) return 'HEAVY_METALS';
+      if (upper.includes('PESTICIDE')) return 'PESTICIDES';
+      if (upper.includes('MICROB')) return 'MICROBIAL';
+      if (upper.includes('MOIST')) return 'MOISTURE';
+      if (upper.includes('ASH')) return 'ASH';
+      if (upper.includes('EXTRACT')) return 'EXTRACTIVES';
+      if (upper.includes('POTEN') || upper.includes('ASSAY')) return 'POTENCY';
+      if (upper.includes('IDENT') || upper.includes('DNA')) return 'IDENTITY';
+      if (upper.includes('CONTAM') || upper.includes('TOXIN')) return 'CONTAMINATION';
+      return 'PURITY';
+    })();
+
     const test = QCService.createTest(db, {
       batch_id,
       template_id,
       lab_id,
       lab_name,
-      test_type,
+      test_type: normalizedTestType,
       species,
       sample_quantity,
       sample_unit,

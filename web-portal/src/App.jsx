@@ -77,6 +77,8 @@ function App() {
           </ProtectedRoute>
         } />
         <Route path="/product-journey/:productId" element={<ProductJourneyPage />} />
+        <Route path="/verify/:productId" element={<ProductJourneyPage />} />
+        <Route path="/verify/:qrCode" element={<ProductJourneyPage />} />
         
         {/* Regular routes with navbar/footer */}
         <Route path="/*" element={
